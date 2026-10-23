@@ -1,0 +1,103 @@
+# Data sources
+
+One entry per source. "Access" says how this repository gets the data. Check the provider's
+current terms before redistributing anything; the citation lines are starting points to
+confirm against the provider pages.
+
+---
+
+## NISAR L2 GCOV (L-band)
+
+- **What:** NASA-ISRO SAR mission, Level-2 Geocoded Polarimetric Covariance product.
+  Radiometrically terrain-corrected backscatter (gamma-0) on a map grid, delivered as HDF5.
+- **Resolution / cadence:** 12-day repeat per track. Demo scenes: track 19, frame 11,
+  ascending, dual-pol HH+HV, frequency A 40 MHz + frequency B 5 MHz ("40+5"). About 7 GB
+  per scene.
+- **Access:** `scripts/00_download_nisar.py` uses `asf_search` (dataset `NISAR`,
+  processingLevel `GCOV`, dataMaturity `PROVISIONAL`) and downloads from ASF with Earthdata
+  Login credentials into `data/nisar/`.
+- **Dataset paths inside the HDF5:**
+  `/science/LSAR/GCOV/grids/frequencyA/HHHH` and `/science/LSAR/GCOV/grids/frequencyA/HVHV`
+  (the diagonal covariance terms, i.e. HH and HV backscatter power, linear scale).
+- **Licence / citation:** NASA data, open with no restrictions. Cite as: NASA/JPL-ISRO NISAR
+  Project, *NISAR L2 Geocoded Polarimetric Covariance (GCOV), Provisional*, distributed by
+  ASF DAAC, accessed <date>. (Confirm the DOI on the ASF collection page.)
+- **Caveats:**
+  - Maturity is **PROVISIONAL** (collection `NISAR_L2_GCOV_PROVISIONAL_V1`), so calibration
+    and formats may still change. Products seen so far are **CRID P05023**.
+  - The **standard observation series starts 2026-06-17**. Earlier acquisitions (including the
+    2025-11 to 2026-05 demo scenes) are **supplemental frames**, so cadence and coverage before
+    that date are not guaranteed.
+  - **Permanent gap from 2026-07-27 to 2026-08-10**: there will never be data for this window.
+  - The files are large: subset to the area of interest early and never commit `.h5`.
+
+## Sentinel-1 GRD (C-band) via Google Earth Engine
+
+- **What:** ESA Copernicus C-band SAR, Ground Range Detected, already calibrated and
+  terrain-corrected to sigma-0 in dB by Earth Engine. Collection `COPERNICUS/S1_GRD`.
+- **Resolution / cadence:** 10 m pixels (IW mode), VV+VH. Revisit is 6-12 days depending on
+  which satellites in the constellation are operating.
+- **Access:** Earth Engine Python API (`earthengine-api`, `geemap`) with `EE_PROJECT`. Not
+  downloaded yet; exports go to `data/sentinel1/`.
+- **Licence / citation:** Copernicus Sentinel data, free and open. Credit:
+  "Contains modified Copernicus Sentinel data [year]".
+- **Caveats:** C-band reaches less far into the canopy than L-band, so it saturates sooner
+  over tall cane. Earth Engine's GRD is sigma-0, not gamma-0, so do not mix it with NISAR
+  values without normalising. Ascending and descending passes have different geometry; keep
+  them as separate series.
+
+## NASA FIRMS VIIRS active fires (375 m)
+
+- **What:** Active-fire detections (thermal anomalies) from VIIRS on Suomi-NPP, NOAA-20 and
+  NOAA-21, with fire radiative power (FRP) and confidence.
+- **Resolution / cadence:** 375 m pixels. Each satellite overpasses roughly twice a day (day
+  and night).
+- **Access:** `scripts/00_download_firms.py` calls the FIRMS area API
+  (`/api/area/csv/<key>/<SOURCE>/<bbox>/<1..5 days>/<date>`) with `FIRMS_MAP_KEY`. It uses
+  Standard Processing (`*_SP`) where available and Near Real-Time (`*_NRT`) for recent days.
+  Output: `data/firms/`.
+- **Licence / citation:** NASA open data. Credit: "We acknowledge the use of data and imagery
+  from NASA's Fire Information for Resource Management System (FIRMS)
+  (https://earthdata.nasa.gov/firms), part of NASA's Earth Science Data and Information
+  System (ESDIS)." Also cite the VIIRS 375 m active fire product (Schroeder et al., 2014).
+- **Caveats:** A detection is a pixel centre, not a field outline. Small or short cane burns
+  can be missed, especially under cloud or between overpasses. A 375 m pixel covers several
+  fields. NRT records are later replaced by SP, so re-download before the final analysis.
+  The API allows at most 5 days per request.
+
+## Sentinel-2 L2A (optical)
+
+- **What:** ESA Copernicus multispectral surface reflectance. Earth Engine collection
+  `COPERNICUS/S2_SR_HARMONIZED`.
+- **Resolution / cadence:** 10-20 m pixels, about 5-day revisit.
+- **Access:** Earth Engine Python API. Used for visual checks (NDVI drop after harvest,
+  dark burn scars) and to draw field boundaries into `data/fields/`.
+- **Licence / citation:** "Contains modified Copernicus Sentinel data [year]".
+- **Caveats:** Clouds are a problem in the rainy season, though the zafra (Nov-May) is mostly
+  dry. Use the SCL band or Cloud Score+ to mask clouds. The harmonised collection removes the
+  2022 processing-baseline offset.
+
+## GPM IMERG (precipitation)
+
+- **What:** NASA Global Precipitation Measurement, multi-satellite precipitation estimates.
+  Earth Engine collection `NASA/GPM_L3/IMERG_V07`.
+- **Resolution / cadence:** 0.1 degrees (about 11 km), every 30 minutes.
+- **Access:** Earth Engine Python API, aggregated to daily totals over the demo area.
+- **Licence / citation:** NASA open data. Huffman, G.J., et al., *GPM IMERG Final
+  Precipitation L3 Half Hourly 0.1 degree x 0.1 degree V07*, GES DISC.
+- **Caveats:** Used only to flag rain on or just before a SAR acquisition. Wet soil and wet
+  canopy raise backscatter and can look like a harvest change. Its cells are far coarser than
+  a field.
+
+## CONADESUCA weekly harvest reports
+
+- **What:** Mexico's Comité Nacional para el Desarrollo Sustentable de la Caña de Azúcar
+  publishes weekly zafra progress reports per sugar mill (cane milled, area harvested, yield,
+  KARBE). The relevant local mill is the Zacatepec mill.
+- **Resolution / cadence:** Weekly, aggregated per mill (no per-field data).
+- **Access:** Manual download from the CONADESUCA / Government of Mexico website. Not
+  automated in this repo.
+- **Licence / citation:** Government of Mexico public information. Cite the CONADESUCA report
+  title and week.
+- **Caveats:** Totals are per mill and cannot validate individual fields, only the shape of
+  the season (start, peak, end). Report formats change between seasons.

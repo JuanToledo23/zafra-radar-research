@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zafra-radar"
+version = "0.1.0"
+description = "Per-field sugarcane harvest and burning detection from NISAR L-band SAR (NASA Space Apps 2026)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "h5py",
+    "numpy",
+    "pandas",
+    "geopandas",
+    "shapely",
+    "rasterio",
+    "pyproj",
+    "matplotlib",
+    "python-dotenv",
+    "requests",
+    "asf_search",
+    "earthengine-api",
+    "geemap",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

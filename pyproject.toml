@@ -24,10 +24,16 @@ dependencies = [
     "earthengine-api",
     "geemap",
     "tqdm",
+    "scikit-learn",
+    "xgboost",
+    "joblib",
 ]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest"]
+# Exercise 7 (automatic field segmentation, stretch goal). Not installed by `make setup`;
+# install when starting that exercise: pip install -e ".[segmentation]"
+segmentation = ["torch", "segment-anything"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

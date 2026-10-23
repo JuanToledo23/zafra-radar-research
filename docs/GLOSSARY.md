@@ -79,3 +79,37 @@ November to May/June. It is also the work of cutting and milling the cane in tha
 *Kilogramos de Azúcar Recuperable Base Estándar*: kilograms of standard-basis recoverable
 sugar per tonne of cane. It measures cane quality and drives the price paid to Mexican cane
 growers, and CONADESUCA reports it per mill.
+
+## Machine learning terms
+
+**Feature (ML)**
+A number computed from the raw data and fed to a model, e.g. "HV drop in dB since the
+previous date" or "rain in the last 48 h". Choosing good features usually matters more than
+choosing the model.
+
+**Classifier**
+A model that assigns each input to a category (here: harvested / not harvested), usually
+with a probability. Random Forest and XGBoost are classifiers built from many decision trees.
+
+**Cross-validation**
+Splitting the labelled data into several parts and, in turn, training on all but one and
+testing on the one left out. Here, the split is by field, so a field's own dates never help
+score that same field.
+
+**DTW (Dynamic Time Warping)**
+A way to measure how alike two time series are, even when one is shifted or stretched in
+time. It can match a field's backscatter curve to a template "harvest" curve when harvests
+happen on different dates.
+
+**IoU (Intersection over Union)**
+A score for how well a predicted shape matches a reference shape: overlapping area divided
+by combined area. 1 is a perfect match, 0 means no overlap.
+
+**Segmentation**
+Splitting an image into regions, labelling every pixel with the object it belongs to. Here:
+outlining individual fields in a satellite image.
+
+**SAM (Segment Anything Model)**
+A general-purpose pretrained image segmentation model from Meta. It outlines objects in any
+image, automatically or from prompt points or boxes, but it was not trained specifically on
+satellite imagery.

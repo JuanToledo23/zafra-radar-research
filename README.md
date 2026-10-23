@@ -2,8 +2,9 @@
 
 Zafra Radar detects, field by field, when sugarcane is harvested and whether it was burned
 before harvest. It combines NISAR L-band SAR backscatter (L2 GCOV) with Sentinel-1, NASA FIRMS
-active fires and Sentinel-2. The demo site is the sugarcane belt around Zacatepec / Jojutla,
-Morelos, Mexico.
+active fires and Sentinel-2. The harvest detector ships in two versions, a rule-based baseline
+and a trained classifier, and the project reports results for both. The demo site is the
+sugarcane belt around Zacatepec / Jojutla, Morelos, Mexico.
 
 ## Challenge
 
@@ -16,7 +17,7 @@ Demo acquisition geometry: NISAR track 19, frame 11, ascending, HH+HV, 40+5 MHz.
 ## Setup
 
 Requires Python 3.11+. No system GDAL/PROJ needed: the `rasterio`, `pyproj` and `pyogrio`
-wheels bundle them.
+wheels bundle them. On macOS, `xgboost` needs the OpenMP runtime: `brew install libomp`.
 
 **With `uv` (preferred, if installed):**
 
@@ -74,22 +75,37 @@ Writes `data/firms/firms_viirs_{snpp,noaa20,noaa21}_<start>_<end>.csv`.
 ## Layout
 
 ```
-src/zafra/        package: config.py (.env loading), paths.py (data dirs)
+src/zafra/        package: config.py (.env loading), paths.py (data dirs),
+                  detect/ (harvest/burn detectors), models/ (ML training and inference)
 scripts/          numbered, runnable scripts (00_ = data download)
-data/             gitignored: nisar/, sentinel1/, firms/, fields/
+data/             gitignored: nisar/, sentinel1/, firms/, fields/, labels/ (ground truth)
 outputs/          gitignored: figures, tables
 notebooks/        exploration
-docs/             DATA_SOURCES.md, GLOSSARY.md
+docs/             DATA_SOURCES.md, GLOSSARY.md, AI_COMPONENTS.md
 ```
 
 ## Learning exercises
 
-1. Inspect a GCOV scene
-2. Field backscatter
-3. Full-season time series
-4. Harvest detector
-5. Burn detection with FIRMS
-6. Validation
+- **1.** Inspect a GCOV scene
+- **2.** Field backscatter
+- **3.** Full-season time series
+- **4.** Harvest detector (rule-based baseline)
+- **4b.** Harvest detector (trained classifier: Random Forest / XGBoost on time-series
+  features + GPM rain + FIRMS fire; DTW as alternative)
+- **5.** Burn detection with FIRMS
+- **6.** Validation
+- **7.** Automatic field segmentation (Sentinel-2, SAM or lightweight model; stretch goal)
+
+## In-product AI
+
+| Component | Status | Exercise |
+|---|---|---|
+| Harvest classifier (Random Forest / XGBoost on per-field features) | Planned | 4b |
+| Automatic field segmentation from Sentinel-2 | Stretch goal | 7 |
+| Per-field natural-language summary via LLM, from a template | Built during the hackathon; cosmetic, not scientific | - |
+
+Design notes: `docs/AI_COMPONENTS.md`. How AI is used to build the project versus inside the
+product: `AI_USAGE.md`.
 
 ## Licence
 

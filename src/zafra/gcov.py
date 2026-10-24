@@ -276,41 +276,66 @@ def load_field(path, epsg: int):
     return geom, field_id
 
 
-def extract_field(f: h5py.File, field_path, freq: str = "A") -> dict:
-    """Window + masks + per-polarization stats for one field. Used by scripts 02 and 03."""
-    from rasterio.features import geometry_mask
+def extract_geometry(f: h5py.File, grid: dict, geom, minfo: dict | None = None, pols=None) -> dict:
+    """Window + masks + per-polarization stats for one polygon on an already-open file.
 
-    grid = read_grid(f, freq)
-    geom, field_id = load_field(field_path, grid["epsg"])
+    `grid` comes from read_grid (read once per scene and reused for every field), `geom` must
+    be in the grid CRS, `minfo` from mask_info (None = do not apply the GCOV mask).
+    Only the window around the polygon is read from disk.
+    """
+    from rasterio.features import geometry_mask
+    from shapely.geometry import box
+
+    freq = grid["freq"]
     rows, cols, transform = window_for_geometry(grid, geom)
     shape = (rows.stop - rows.start, cols.stop - cols.start)
+
+    # Is the whole polygon inside the grid's outer edges? If not, window_for_geometry clipped
+    # the window and part of the field is simply not covered by this product.
+    dx, dy = grid["dx"], grid["dy"]
+    grid_box = box(
+        grid["x"][0] - dx / 2, grid["y"][-1] + dy / 2, grid["x"][-1] + dx / 2, grid["y"][0] - dy / 2
+    )
+    clipped = not geom.within(grid_box)
 
     # Polygon -> pixel mask. A pixel counts as inside if its *centre* is in the polygon
     # (all_touched=False), which avoids mixing in edge pixels from neighbouring fields.
     inside = geometry_mask([geom], out_shape=shape, transform=transform, invert=True)
 
-    minfo = mask_info(f, freq) if grid["has_mask"] else None
     valid = inside.copy()
+    outside_swath_px = invalid_px = 0
     if minfo:
-        valid &= valid_from_mask(read_window(f, freq, "mask", rows, cols), minfo)
+        m = read_window(f, freq, "mask", rows, cols)
+        if minfo["fill_value"] is not None:
+            outside_swath_px = int((inside & (m == minfo["fill_value"])).sum())
+        invalid_px = int((inside & (m == minfo["invalid_value"])).sum())
+        valid &= valid_from_mask(m, minfo)
 
     looks = None
     if grid["has_number_of_looks"]:
         looks = read_window(f, freq, "numberOfLooks", rows, cols)
     layers, stats = {}, {}
-    for pol in grid["polarizations"]:
+    for pol in pols or grid["polarizations"]:
         layers[pol] = read_window(f, freq, pol, rows, cols)
         stats[pol] = field_stats(layers[pol], valid, looks)
 
     return {
-        "field_id": field_id,
-        "geom": geom,
-        "grid": grid,
         "window": {"rows": [rows.start, rows.stop], "cols": [cols.start, cols.stop]},
         "transform": transform,
+        "clipped": clipped,
         "inside_px": int(inside.sum()),
         "mask_rejected_px": int(inside.sum() - valid.sum()),
-        "mask_info": minfo,
+        "outside_swath_px": outside_swath_px,  # mask == fill (255): no radar data here
+        "invalid_px": invalid_px,  # mask == 0: partially focused / invalid samples
         "layers": layers,
         "stats": stats,
     }
+
+
+def extract_field(f: h5py.File, field_path, freq: str = "A") -> dict:
+    """One field file (geometries unioned) on one open scene. Used by scripts 02 and 03."""
+    grid = read_grid(f, freq)
+    geom, field_id = load_field(field_path, grid["epsg"])
+    minfo = mask_info(f, freq) if grid["has_mask"] else None
+    res = extract_geometry(f, grid, geom, minfo)
+    return {"field_id": field_id, "geom": geom, "grid": grid, "mask_info": minfo, **res}

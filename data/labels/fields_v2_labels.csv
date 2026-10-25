@@ -1,0 +1,38 @@
+id,hyp,label,reason,ndvi_max,run_days,run_start,run_end,n_collapses_2024-25,n_collapses_2025-26,n_collapses_rainy,collapse_dates,area_ha,n_clear_scenes,harvest_window_start,harvest_window_end,orig_field,notes
+p1,cana,cana,"plateau 247 d, ≤1 collapse/season, max 0.82",0.8169,247,2025-04-30,2026-01-02,1,1,0,"2025-01-15, 2026-02-04",2.2250,114,2026-01-30,2026-02-04,field_02,"114 clear scenes; = field_02; collapses 2025-01-15, 2026-02-04"
+p2a,cana,cana,"plateau 263 d, ≤1 collapse/season, max 0.87",0.8690,263,2025-04-27,2026-01-15,1,1,0,"2025-01-05, 2026-01-25",0.8270,118,2026-01-15,2026-01-25,field_04,"118 clear scenes; = field_04; collapses 2025-01-05, 2026-01-25"
+p2b,cana,cana,"plateau 150 d, ≤1 collapse/season, max 0.85",0.8452,150,2025-08-28,2026-01-25,1,1,0,"2025-01-15, 2026-02-04",4.7420,116,2026-01-30,2026-02-04,,"116 clear scenes; collapses 2025-01-15, 2026-02-04"
+p3,cana,cana,"plateau 210 d, ≤1 collapse/season, max 0.84",0.8400,210,2025-06-06,2026-01-02,1,1,0,"2025-03-26, 2026-02-19",2.2870,118,2026-02-14,2026-02-19,,"118 clear scenes; collapses 2025-03-26, 2026-02-19"
+p4,cana,cana,"plateau 233 d, ≤1 collapse/season, max 0.83",0.8272,233,2025-06-06,2026-01-25,1,1,0,"2025-03-16, 2026-03-13",2.0770,115,2026-03-06,2026-03-13,,"115 clear scenes; collapses 2025-03-16, 2026-03-13"
+p5,cana,dudoso,longest plateau 145 d < 150,0.8004,145,2025-09-17,2026-02-09,1,1,0,"2025-03-26, 2026-02-24",0.7780,119,,,,"119 clear scenes; collapses 2025-03-26, 2026-02-24"
+p6,cana,cana,"plateau 150 d, ≤1 collapse/season, max 0.81",0.8101,150,2025-09-07,2026-02-04,1,1,0,"2025-03-26, 2026-03-06",0.7280,119,2026-03-01,2026-03-06,,"119 clear scenes; collapses 2025-03-26, 2026-03-06"
+p7,cana,cana,"plateau 168 d, ≤1 collapse/season, max 0.82",0.8169,168,2025-08-25,2026-02-09,1,1,0,"2025-03-26, 2026-02-24",0.7020,118,2026-02-19,2026-02-24,,"118 clear scenes; collapses 2025-03-26, 2026-02-24"
+p8,cana,cana,"plateau 155 d, ≤1 collapse/season, max 0.78",0.7849,155,2025-08-23,2026-01-25,1,1,0,"2025-04-05, 2026-03-01",2.2960,118,2026-02-24,2026-03-01,,"118 clear scenes; collapses 2025-04-05, 2026-03-01"
+p9,cana,cana,"plateau 250 d, ≤1 collapse/season, max 0.84",0.8436,250,2025-05-05,2026-01-10,1,1,0,"2025-02-04, 2026-01-25",2.0290,118,2026-01-15,2026-01-25,,"118 clear scenes; collapses 2025-02-04, 2026-01-25"
+p10,cana,cana,"plateau 210 d, ≤1 collapse/season, max 0.85",0.8533,210,2025-06-06,2026-01-02,1,1,0,"2025-01-30, 2026-01-25",6.9170,116,2026-01-15,2026-01-25,,"116 clear scenes; collapses 2025-01-30, 2026-01-25"
+p11,cana,cana,"plateau 295 d, ≤1 collapse/season, max 0.85",0.8479,295,2025-03-16,2026-01-05,1,1,0,"2024-12-01, 2026-01-10",1.9660,118,2026-01-05,2026-01-10,,"118 clear scenes; collapses 2024-12-01, 2026-01-10"
+p12,cana,cana,"plateau 210 d, ≤1 collapse/season, max 0.86",0.8564,210,2025-05-15,2025-12-11,1,1,0,"2024-12-26, 2026-01-15",4.7520,118,2026-01-12,2026-01-15,,"118 clear scenes; collapses 2024-12-26, 2026-01-15"
+p13,cana,cana,"plateau 247 d, ≤1 collapse/season, max 0.83",0.8297,247,2025-04-30,2026-01-02,1,1,0,"2025-01-20, 2026-01-05",6.8180,114,2026-01-02,2026-01-05,,"114 clear scenes; collapses 2025-01-20, 2026-01-05"
+p14,cana,cana,"plateau 285 d, ≤1 collapse/season, max 0.86",0.8586,285,2025-03-26,2026-01-05,1,1,0,"2025-01-15, 2026-01-10",2.3920,114,2026-01-05,2026-01-10,,"114 clear scenes; collapses 2025-01-15, 2026-01-10"
+p15,cana,cana,"plateau 260 d, ≤1 collapse/season, max 0.87",0.8674,260,2025-04-20,2026-01-05,1,1,0,"2025-01-05, 2026-01-10",5.9710,115,2026-01-05,2026-01-10,,"115 clear scenes; collapses 2025-01-05, 2026-01-10"
+p16,cana,cana,"plateau 240 d, ≤1 collapse/season, max 0.83",0.8291,240,2025-04-30,2025-12-26,1,1,0,"2024-12-11, 2026-01-02",9.0420,115,2025-12-31,2026-01-02,,"115 clear scenes; collapses 2024-12-11, 2026-01-02"
+p17,cana,cana,"plateau 243 d, ≤1 collapse/season, max 0.85",0.8532,243,2025-06-06,2026-02-04,1,1,0,"2025-04-05, 2026-03-13",4.1810,117,2026-03-11,2026-03-13,,"117 clear scenes; collapses 2025-04-05, 2026-03-13"
+p18,cana,cana,"plateau 233 d, ≤1 collapse/season, max 0.88",0.8765,233,2025-06-06,2026-01-25,1,1,0,"2025-04-05, 2026-03-21",3.6310,115,2026-03-16,2026-03-21,,"115 clear scenes; collapses 2025-04-05, 2026-03-21"
+p19,cana,cana,"plateau 243 d, ≤1 collapse/season, max 0.87",0.8653,243,2025-06-06,2026-02-04,1,1,0,"2025-04-05, 2026-03-21",3.4330,116,2026-03-16,2026-03-21,,"116 clear scenes; collapses 2025-04-05, 2026-03-21"
+p20,cana,cana,"plateau 205 d, ≤1 collapse/season, max 0.87",0.8728,205,2025-07-04,2026-01-25,1,1,0,"2025-03-06, 2026-02-24",2.3960,119,2026-02-19,2026-02-24,,"119 clear scenes; collapses 2025-03-06, 2026-02-24"
+p21,cana,cana,"plateau 180 d, ≤1 collapse/season, max 0.87",0.8667,180,2025-08-23,2026-02-19,1,1,0,"2025-03-11, 2026-03-01",1.9020,119,2026-02-24,2026-03-01,,"119 clear scenes; collapses 2025-03-11, 2026-03-01"
+p22,cana,cana,"plateau 180 d, ≤1 collapse/season, max 0.88",0.8778,180,2025-08-23,2026-02-19,1,1,0,"2025-03-06, 2026-03-01",5.0430,119,2026-02-24,2026-03-01,,"119 clear scenes; collapses 2025-03-06, 2026-03-01"
+p23,cana,cana,"plateau 232 d, ≤1 collapse/season, max 0.88",0.8799,232,2025-05-15,2026-01-02,1,1,0,"2025-02-04, 2026-01-25",3.9590,116,2026-01-15,2026-01-25,field_03,"116 clear scenes; = field_03; collapses 2025-02-04, 2026-01-25"
+p24,cana,cana,"plateau 232 d, ≤1 collapse/season, max 0.86",0.8597,232,2025-05-15,2026-01-02,1,1,0,"2025-01-30, 2026-01-25",2.1830,117,2026-01-15,2026-01-25,,"117 clear scenes; collapses 2025-01-30, 2026-01-25"
+p25,cana,cana,"plateau 232 d, ≤1 collapse/season, max 0.87",0.8680,232,2025-05-15,2026-01-02,1,1,0,"2025-02-04, 2026-01-25",2.2360,117,2026-01-15,2026-01-25,,"117 clear scenes; collapses 2025-02-04, 2026-01-25"
+p26,no_cana,dudoso,max 0.69 < 0.75,0.6931,165,2025-05-15,2025-10-27,0,0,0,,0.4010,122,,,,122 clear scenes; small (unreliable)
+p27,no_cana,dudoso,longest plateau 35 d < 150; max 0.71 < 0.75,0.7115,35,2025-09-07,2025-10-12,0,1,0,2026-03-21,0.2800,115,,,,115 clear scenes; small (unreliable); collapses 2026-03-21
+p28,no_cana,dudoso,longest plateau 40 d < 150; max 0.74 < 0.75,0.7446,40,2025-07-04,2025-08-13,1,0,0,2025-03-16,0.3230,117,,,,117 clear scenes; small (unreliable); collapses 2025-03-16
+p29,no_cana,dudoso,longest plateau 55 d < 150,0.8180,55,2025-07-24,2025-09-17,1,1,0,"2024-12-01, 2025-11-16",4.2150,107,,,,"107 clear scenes; collapses 2024-12-01, 2025-11-16"
+p30,no_cana,dudoso,longest plateau 75 d < 150; max 0.70 < 0.75,0.7023,75,2025-07-04,2025-09-17,0,1,0,2025-12-01,4.9090,113,,,,113 clear scenes; collapses 2025-12-01
+p31,no_cana,dudoso,longest plateau 70 d < 150,0.8354,70,2025-08-03,2025-10-12,1,1,0,"2024-12-21, 2025-11-21",3.9120,117,,,,"117 clear scenes; collapses 2024-12-21, 2025-11-21"
+p32,no_cana,dudoso,longest plateau 65 d < 150,0.8561,65,2025-08-13,2025-10-17,1,1,0,"2024-12-11, 2025-11-11",6.2050,113,,,,"113 clear scenes; collapses 2024-12-11, 2025-11-11"
+p33a,no_cana,dudoso,longest plateau 70 d < 150,0.8398,70,2025-07-24,2025-10-02,1,1,0,"2024-11-21, 2025-11-16",2.8310,114,,,,"114 clear scenes; collapses 2024-11-21, 2025-11-16"
+p33b,no_cana,dudoso,longest plateau 70 d < 150,0.8431,70,2025-08-13,2025-10-22,1,1,0,"2024-12-01, 2025-11-03",5.7110,115,,,,"115 clear scenes; collapses 2024-12-01, 2025-11-03"
+p34,no_cana,dudoso,longest plateau 0 d < 150; max 0.50 < 0.75,0.4984,0,,,0,0,0,,1.3370,116,,,,116 clear scenes
+p35,no_cana,no_cana,collapse in Jun-Oct (2025-10-27),0.8448,60,2025-08-03,2025-10-02,1,0,1,"2024-11-16, 2025-10-27",6.0900,116,,,,"116 clear scenes; collapses 2024-11-16, 2025-10-27"

@@ -57,6 +57,21 @@ confirm against the provider pages.
     come from `xCoordinates`/`yCoordinates`, and the spacing from
     `xCoordinateSpacing`/`yCoordinateSpacing` (y is negative, north-up). The valid-pixel mask
     is `mask` one level up.
+- **Dataset paths read by `src/zafra/multisignal.py`** (`extract_coherence_series`):
+  - coherence: `/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH/coherenceMagnitude`
+  - grid: `.../wrappedInterferogram/xCoordinates` and `.../yCoordinates` (pixel centres; the
+    `HH` subgroup holds identical copies), `.../wrappedInterferogram/projection` (EPSG:32614).
+    Spacing is computed from the coordinates (20 m, -20 m) and the window is cut with
+    `gcov.window_for_geometry`, the same as for GCOV. The coordinates carry no
+    `pixel_coordinate_convention` attribute; their values (odd multiples of 10 m on a 20 m grid)
+    are consistent with pixel centres.
+  - QA only: `.../wrappedInterferogram/mask` (uint32; bits 0-7 = water flag and the reference and
+    secondary subswath digits, 0 = invalid sample; bits 8-23 = RSLC anomaly flags; 255 = fill).
+    Flagged pixels are counted (`mask_flagged_px`) but not removed. Only NaN pixels are dropped.
+  - pair dates: `/science/LSAR/identification/referenceZeroDopplerStartTime` and
+    `secondaryZeroDopplerStartTime`.
+  - Field statistic: mean and median coherence of the pixels whose **centre** lies inside the
+    polygon, with NaN excluded.
 - **Use in this project:** **coherence only**. Low coherence across a pair is evidence that
   the field changed (cut, burnt or trafficked) between the two dates. We do **no deformation
   processing**: no phase unwrapping checks, no ionosphere or troposphere correction, no

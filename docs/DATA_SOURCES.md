@@ -30,6 +30,45 @@ confirm against the provider pages.
     that date are not guaranteed.
   - **Permanent gap from 2026-07-27 to 2026-08-10**: there will never be data for this window.
   - The files are large: subset to the area of interest early and never commit `.h5`.
+  - A second pass covers the site: **descending track 113, frame 79** (about 01:13 UTC,
+    against about 12:05 UTC for ascending), same 40+5 HH+HV mode. Downloaded with
+    `--direction DESCENDING` into `data/nisar/GCOV_DESCENDING_t113f79/`. Keep it as a
+    separate series because the viewing geometry is different.
+
+## NISAR L2 GUNW (L-band interferometric coherence)
+
+- **What:** Level-2 Geocoded Unwrapped Interferogram. Each file is one **nearest-neighbour
+  12-day pair** (reference date and secondary date) from the same track. It contains wrapped
+  and unwrapped interferometric phase, **coherence magnitude**, connected components,
+  ionosphere phase screen and pixel offsets, all on map grids. Co-pol only (**HH** for our
+  track; VV in other modes), **frequency A** only (40 MHz). About 2.3 GB per pair.
+- **Access:** `scripts/00_download_nisar.py --product GUNW --track 19 --frame 11`
+  (processingLevel `GUNW`, dataMaturity `PROVISIONAL`, collection
+  `NISAR_L2_GUNW_PROVISIONAL_V1`) into `data/nisar/GUNW_ASCENDING_t19f11/`. ASF matches on
+  temporal overlap, so pairs that straddle the window edges are included (2025-11-11/11-23
+  and 2026-05-10/05-22).
+- **Coherence layer** (checked in the `20251111/20251123` file, CRID P05023):
+  - `/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH/coherenceMagnitude`:
+    **20 m** spacing, 16740 x 17064, float32, NaN fill. **This is the one we use**, because
+    it resolves individual fields.
+  - `/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/HH/coherenceMagnitude`:
+    80 m (multilooked) version, 4185 x 4266.
+  - Both are in UTM zone 14N, **EPSG:32614** (scalar `projection` in the same group). x and y
+    come from `xCoordinates`/`yCoordinates`, and the spacing from
+    `xCoordinateSpacing`/`yCoordinateSpacing` (y is negative, north-up). The valid-pixel mask
+    is `mask` one level up.
+- **Use in this project:** **coherence only**. Low coherence across a pair is evidence that
+  the field changed (cut, burnt or trafficked) between the two dates. We do **no deformation
+  processing**: no phase unwrapping checks, no ionosphere or troposphere correction, no
+  time-series inversion.
+- **Licence / citation:** NASA data, open with no restrictions. Cite as: NASA/JPL-ISRO NISAR
+  Project, *NISAR L2 Geocoded Unwrapped Interferogram (GUNW), Provisional*, distributed by
+  ASF DAAC, accessed <date>. (Confirm the DOI on the ASF collection page.)
+- **Caveats:** PROVISIONAL maturity, the same supplemental-frame caveats as GCOV, and the
+  same permanent July/August 2026 gap. Older BETA products (CRID X050xx) also exist and
+  include a 24-day 2025-11-23/12-17 pair. They are not downloaded, because PROVISIONAL
+  reprocessing covers every date. A missing acquisition breaks the 12-day chain, so check the
+  date pairs before treating the series as regular.
 
 ## Sentinel-1 GRD (C-band) via Google Earth Engine
 

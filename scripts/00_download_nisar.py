@@ -1,9 +1,18 @@
-"""List and download NISAR L2 GCOV scenes over the Zacatepec/Jojutla demo site.
+"""List and download NISAR L2 GCOV or GUNW scenes over the Zacatepec/Jojutla demo site.
 
-Default: print a table of matching scenes and exit.
+Default: print a table of matching GCOV ascending scenes and exit.
     python scripts/00_download_nisar.py
 Download two specific scenes:
     python scripts/00_download_nisar.py --download --dates 2026-03-11,2026-05-10
+Other products / passes (without --track/--frame, every track/frame covering the point is
+listed; if exactly one is found it is used):
+    python scripts/00_download_nisar.py --product GUNW --track 19 --frame 11
+    python scripts/00_download_nisar.py --direction DESCENDING
+
+Output folder: data/nisar/<product>_<direction>_t<track>f<frame>/, except GCOV ascending
+track 19 frame 11, which stays in data/nisar/ where the earlier exercises read it.
+For GUNW, "date" is the reference (first) acquisition of the interferometric pair; --dates
+matches it.
 
 Downloads are robust to dropped connections: each file is retried up to 5 times with
 exponential backoff, partial files (.part) are resumed with an HTTP Range request when the
@@ -13,7 +22,9 @@ flock-based) stops two concurrent runs from writing the same partial file.
 
 Search parameters were checked against asf_search 14.1.0 (`inspect.signature(asf.search)`):
 dataset, processingLevel, dataMaturity, flightDirection, relativeOrbit, frame and
-intersectsWith are all native. For NISAR, asf_search rewrites `frame` from CENTER_ESA_FRAME
+intersectsWith are all native. "GCOV" and "GUNW" are asf.PRODUCT_TYPE constants (CMR attribute
+PROCESSING_TYPE); "ASCENDING"/"DESCENDING" are asf.FLIGHT_DIRECTION constants (CMR attribute
+ASCENDING_DESCENDING). For NISAR, asf_search rewrites `frame` from CENTER_ESA_FRAME
 to the FRAME_NUMBER attribute (asf_search/CMR/translate.py::use_asf_frame).
 """
 
@@ -22,6 +33,7 @@ import fcntl
 import re
 import sys
 import time
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -35,8 +47,9 @@ from zafra import config
 from zafra.paths import NISAR_DIR
 
 POINT_WKT = "POINT(-99.184 18.581)"
-TRACK = 19
-FRAME = 11
+# GCOV ascending track 19 frame 11 was downloaded straight into data/nisar/ before the script
+# handled other products; keep that folder so earlier commands and exercises still work.
+LEGACY = ("GCOV", "ASCENDING", 19, 11)
 CHUNK = 1024 * 1024
 MAX_RETRIES = 5
 BACKOFF_BASE = 2  # seconds; wait 2, 4, 8, 16, 32 s before retries 1..5
@@ -44,6 +57,11 @@ BACKOFF_BASE = 2  # seconds; wait 2, 4, 8, 16, 32 s before retries 1..5
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    p.add_argument("--product", choices=["GCOV", "GUNW"], default="GCOV")
+    p.add_argument("--direction", choices=["ASCENDING", "DESCENDING"], default="ASCENDING")
+    p.add_argument("--track", type=int, help="relative orbit; omit to search by point")
+    p.add_argument("--frame", type=int, help="frame number; omit to search by point")
+    p.add_argument("--out-dir", type=Path, help="default: data/nisar/<product>_<dir>_t<N>f<N>/")
     p.add_argument("--start", default="2025-11-15", help="start date YYYY-MM-DD")
     p.add_argument("--end", default="2026-05-21", help="end date YYYY-MM-DD (inclusive)")
     p.add_argument("--download", action="store_true", help="download the .h5 files")
@@ -52,17 +70,27 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def search(start: str, end: str) -> list[asf.ASFProduct]:
+def search(
+    product: str, direction: str, track: int | None, frame: int | None, start: str, end: str
+) -> list[asf.ASFProduct]:
+    """PROVISIONAL products intersecting the point. track/frame of None means any.
+
+    ASF matches on temporal overlap, so a GUNW pair that straddles `start` or `end` is
+    included. Every BETA product seen so far has a PROVISIONAL reprocessing of the same
+    acquisition(s), so BETA is never requested.
+    """
+    opts = {"relativeOrbit": track} if track is not None else {}
+    if frame is not None:
+        opts["frame"] = frame
     results = asf.search(
         dataset=asf.DATASET.NISAR,
-        processingLevel="GCOV",
+        processingLevel=product,
         dataMaturity="PROVISIONAL",
-        flightDirection="ASCENDING",
-        relativeOrbit=TRACK,
-        frame=FRAME,
+        flightDirection=direction,
         intersectsWith=POINT_WKT,
         start=f"{start}T00:00:00Z",
         end=f"{end}T23:59:59Z",
+        **opts,
     )
     # Belt and braces: re-check on returned properties. `dataMaturity` is not exposed as a
     # product property for NISAR in asf_search 14.1.0, so maturity is checked via the
@@ -70,13 +98,17 @@ def search(start: str, end: str) -> list[asf.ASFProduct]:
     products = [
         p
         for p in results
-        if p.properties.get("pathNumber") == TRACK
-        and p.properties.get("frameNumber") == FRAME
-        and p.properties.get("flightDirection") == "ASCENDING"
-        and p.properties.get("processingLevel") == "GCOV"
+        if (track is None or p.properties.get("pathNumber") == track)
+        and (frame is None or p.properties.get("frameNumber") == frame)
+        and p.properties.get("flightDirection") == direction
+        and p.properties.get("processingLevel") == product
         and "PROVISIONAL" in (p.properties.get("collectionName") or "")
     ]
     return sorted(products, key=lambda p: p.properties["startTime"])
+
+
+def track_frame(product: asf.ASFProduct) -> tuple[int, int]:
+    return product.properties["pathNumber"], product.properties["frameNumber"]
 
 
 def h5_size(product: asf.ASFProduct) -> int | None:
@@ -85,17 +117,42 @@ def h5_size(product: asf.ASFProduct) -> int | None:
 
 
 def acq_date(product: asf.ASFProduct) -> str:
+    """Acquisition date; for GUNW, the reference (first) date of the pair."""
     return product.properties["startTime"][:10]
 
 
+def date_label(product: asf.ASFProduct) -> str:
+    """'YYYY-MM-DD' for GCOV, 'YYYY-MM-DD/YYYY-MM-DD' (reference/secondary) for GUNW.
+
+    GUNW names carry four timestamps: reference start/stop, then secondary start/stop.
+    """
+    stamps = re.findall(r"_(\d{8})T\d{6}", product.properties["sceneName"])
+    if product.properties["processingLevel"] == "GUNW" and len(stamps) >= 3:
+        ref, sec = (date.fromisoformat(f"{d[:4]}-{d[4:6]}-{d[6:]}") for d in stamps[0:3:2])
+        return f"{ref}/{sec}"
+    return acq_date(product)
+
+
 def print_table(products: list[asf.ASFProduct]) -> None:
-    print(f"{'date':<11} {'size_GB':>7}  granule")
+    groups = defaultdict(list)
     for p in products:
-        size = h5_size(p)
-        gb = f"{size / 1e9:7.2f}" if size else "    n/a"
-        print(f"{acq_date(p):<11} {gb}  {p.properties['sceneName']}")
+        groups[track_frame(p)].append(p)
+    width = max((len(date_label(p)) for p in products), default=10) + 1
+    for (track, frame), group in sorted(groups.items()):
+        print(f"\ntrack {track} frame {frame}")
+        print(f"{'date':<{width}} {'size_GB':>7}  granule")
+        for p in group:
+            size = h5_size(p)
+            gb = f"{size / 1e9:7.2f}" if size else "    n/a"
+            print(f"{date_label(p):<{width}} {gb}  {p.properties['sceneName']}")
     total = sum(h5_size(p) or 0 for p in products)
-    print(f"\n{len(products)} scene(s), {total / 1e9:.1f} GB total")
+    print(f"\n{len(products)} scene(s), {len(groups)} track/frame, {total / 1e9:.1f} GB total")
+
+
+def default_out_dir(product: str, direction: str, track: int, frame: int) -> Path:
+    if (product, direction, track, frame) == LEGACY:
+        return NISAR_DIR
+    return NISAR_DIR / f"{product}_{direction}_t{track}f{frame}"
 
 
 class SizeMismatch(Exception):
@@ -205,10 +262,10 @@ def is_complete(dest: Path, expected: int | None) -> bool:
     return dest.exists() and expected is not None and dest.stat().st_size == expected
 
 
-def download(product: asf.ASFProduct, session: asf.ASFSession) -> bool:
+def download(product: asf.ASFProduct, session: asf.ASFSession, out_dir: Path) -> bool:
     """Download one product. Returns False if skipped because another run holds its lock."""
     name = product.properties["fileName"]
-    dest = NISAR_DIR / name
+    dest = out_dir / name
     expected = h5_size(product)
     if is_complete(dest, expected):
         print(f"skip (already complete): {name}")
@@ -225,7 +282,7 @@ def download(product: asf.ASFProduct, session: asf.ASFSession) -> bool:
 
         tmp = dest.with_suffix(dest.suffix + ".part")
         url = product.properties["url"]
-        desc = acq_date(product)
+        desc = date_label(product)
 
         for attempt in range(MAX_RETRIES + 1):
             drop_idle_connections(session)  # never reuse a keep-alive from the previous try
@@ -256,7 +313,7 @@ def main() -> int:
     for d in (args.start, args.end):
         date.fromisoformat(d)
 
-    products = search(args.start, args.end)
+    products = search(args.product, args.direction, args.track, args.frame, args.start, args.end)
     if args.dates:
         wanted = {d.strip() for d in args.dates.split(",") if d.strip()}
         for d in wanted:
@@ -273,10 +330,19 @@ def main() -> int:
         print("\nList only. Re-run with --download to fetch (optionally --dates / --limit).")
         return 0
 
+    groups = {track_frame(p) for p in products}
+    if len(groups) > 1:
+        sys.exit("error: several track/frame groups found; pick one with --track and --frame")
+    if not products:
+        print("nothing to download")
+        return 0
+    out_dir = args.out_dir or default_out_dir(args.product, args.direction, *groups.pop())
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     username, password = config.earthdata_credentials()
     session = asf.ASFSession().auth_with_creds(username, password)
-    print(f"\nDownloading to {NISAR_DIR}")
-    locked_out = [p.properties["fileName"] for p in products if not download(p, session)]
+    print(f"\nDownloading to {out_dir}")
+    locked_out = [p.properties["fileName"] for p in products if not download(p, session, out_dir)]
     if locked_out:
         print(f"\n{len(locked_out)} file(s) skipped because another run is downloading them.")
         return 1

@@ -239,3 +239,22 @@ Append one line per session: date, what the AI helped with, what was changed or 
 
     Re-run live: 57/58 passed. Claude Code also found that rounding P before the 0.5
     threshold changed `cane_confidence` on 2 segments, and fixed it.
+- 2026-10-27: Exercise 7. Claude Code wrote the product skeleton in `product/` (compose with
+  PostGIS 16, FastAPI and React + MapLibre; the empty schema; the map shell with the
+  50-polygon sample; `HACKATHON_PLAN.md`), the headless screenshot script, the integration
+  smoke test (`tests/test_product_smoke.py`) and the doc updates, following the author's
+  written brief. No data loading and no data endpoints, as briefed.
+  - Choices the brief left open:
+    * Esri World Imagery as the online basemap, shown only after a probe tile loads;
+    * the 50 sample polygons are the dated segments nearest the median of all dated
+      segments (one compact cluster), with harvest_date and confidence only;
+    * the API applies the schema on every start (idempotent);
+    * host port 5434 for the database (5432/5433 were taken on the author's machine).
+  - Found while proving it runs:
+    * `pg_isready` over the socket passed during PostGIS's first-init temporary server, so
+      the API started too early; the healthcheck now uses TCP and the seed retries;
+    * Docker does not publish ports of containers on an internal network only, so the
+      offline override adds a TCP forwarder (`gateway`) for the browser;
+    * `postgis/postgis:16-3.4` is amd64 only and runs under emulation on Apple Silicon.
+  - Offline was checked with the containers on an internal network and the browser aborting
+    every non-localhost request; the Mac wifi itself was not switched off.

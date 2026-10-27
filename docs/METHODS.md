@@ -690,6 +690,21 @@ fuego VIIRS detectado cerca" / "No VIIRS fire detected nearby" when there is non
   (no_harvest, no_baseline), and fires from a neighbouring field inside the 200 m buffer
   or the same 375 m pixel.
 
+## Product architecture (exercise 7)
+
+The product lives in `product/` and is self-contained (it does not import `src/zafra`):
+PostGIS 16 (`postgis/postgis:16-3.4`), a FastAPI service and a React + MapLibre GL web app,
+started together with `docker compose up --build`. The schema (`product/api/app/schema.sql`)
+mirrors the delivered outputs: `segments` holds the slim GeoJSON columns ("Frontend export"
+above) with a GiST-indexed geometry, `segment_series` the per-orbit HV/HH/coherence series,
+`weekly` the columns of `results/4e/weekly.csv`, and `fires` and `alerts` the exercise 6
+inputs and outputs. As built in exercise 7 it is a skeleton: the tables are empty, the API
+answers only `/health` and `/version`, and the map renders a bundled 50-polygon Morelos
+sample coloured by harvest date. The basemap degrades to a plain background when tiles are
+unreachable, and the stack starts with no container egress
+(`product/docker-compose.offline.yml`). The loader, the `ST_AsMVT` tile endpoint and the
+detail views are planned in `product/HACKATHON_PLAN.md`.
+
 ## References
 
 * Oliver, C. & Quegan, S. (1998; 2004 reprint). *Understanding Synthetic Aperture Radar

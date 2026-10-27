@@ -18,8 +18,8 @@ endif
 	$(BIN)/python -c "import h5py, rasterio, asf_search, ee; print('imports OK')"
 
 lint:
-	$(BIN)/ruff check src scripts
-	$(BIN)/ruff format --check src scripts
+	$(BIN)/ruff check src scripts product/api
+	$(BIN)/ruff format --check src scripts product/api
 
 test:
 	$(BIN)/pytest -q || [ $$? -eq 5 ]  # exit 5 = no tests collected yet

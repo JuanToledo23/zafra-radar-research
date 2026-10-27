@@ -1,0 +1,45 @@
+# Offline check: db, api and web sit on an internal network with no egress (no DNS, no
+# internet), so anything that silently needs the network at runtime fails here.
+#   docker compose -f docker-compose.yml -f docker-compose.offline.yml up -d --wait
+#
+# Docker does not publish ports of containers that are only on an internal network, so a
+# small TCP forwarder (`gateway`, the cached node:24-alpine image, nothing new to pull) joins
+# both networks and exposes the web and API ports to the host. It forwards inbound
+# connections only; the app containers still cannot reach the internet.
+services:
+  db:
+    ports: !reset []
+  api:
+    ports: !reset []
+  web:
+    ports: !reset []
+  gateway:
+    image: node:24-alpine
+    networks: [default, edge]
+    ports:
+      - "${API_PORT:-8000}:8000"
+      - "${WEB_PORT:-5173}:5173"
+    environment:
+      FORWARD: "8000:api:8000,5173:web:5173"
+    command:
+      - node
+      - -e
+      - |
+        const net = require("net");
+        for (const spec of process.env.FORWARD.split(",")) {
+          const [listen, host, port] = spec.split(":");
+          net.createServer((c) => {
+            const u = net.connect(Number(port), host);
+            c.on("error", () => u.destroy());
+            u.on("error", () => c.destroy());
+            c.pipe(u).pipe(c);
+          }).listen(Number(listen), () => console.log(`forward :$${listen} -> $${host}:$${port}`));
+        }
+    depends_on:
+      web:
+        condition: service_healthy
+
+networks:
+  default:
+    internal: true
+  edge: {}

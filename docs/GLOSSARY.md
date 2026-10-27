@@ -61,7 +61,9 @@ easiest NISAR product to use for land-cover change.
 
 **Revisit**
 How often a satellite images the same spot from the same track. NISAR repeats every 12 days.
-A harvest can only be dated to within one revisit interval.
+With the ascending and descending passes interleaved, looks are 2-12 days apart, and a
+harvest is dated to within half the gap between the last standing and the first harvested
+look.
 
 **FIRMS**
 NASA's Fire Information for Resource Management System. It serves near real-time and archived
@@ -113,3 +115,103 @@ outlining individual fields in a satellite image.
 A general-purpose pretrained image segmentation model from Meta. It outlines objects in any
 image, automatically or from prompt points or boxes, but it was not trained specifically on
 satellite imagery.
+
+## Project and pipeline terms
+
+One line each, alphabetical.
+
+**Ablation**: re-running a model with some inputs removed or added back, to see which ones matter.
+
+**AOI (area of interest)**: the rectangle processed for a site (`aoi.bbox` in `configs/<site>.yaml`).
+
+**ASF DAAC**: the Alaska Satellite Facility archive, which distributes NISAR data.
+
+**AUC**: area under the ROC curve; 1 means the model ranks every positive above every negative.
+
+**Baseline (radar)**: a polygon's typical HV before harvest, the median of the first 3 looks of an orbit in the baseline months.
+
+**Baseline rule (3-look)**: a harvest date is kept only after ≥ 3 standing looks in the candidate's own orbit.
+
+**C-band / L-band**: radar wavelengths of ~5.6 cm (Sentinel-1) and ~24 cm (NISAR); L-band reaches deeper into the cane canopy.
+
+**Cane gate**: the model that decides whether a polygon is sugarcane before the harvest detector runs.
+
+**Coherence**: how similar the radar phase of a pixel is between two dates (0-1); a cut, burn or tillage makes it drop.
+
+**Crop year**: the 12 months ending at the end of the season, used for NDVI phenology.
+
+**CRID**: the NISAR processing version stamped on each product (here P05023).
+
+**`dudoso`**: "doubtful"; a reference polygon that the NDVI labelling rule did not call cane or not cane.
+
+**Earth Engine**: Google's platform used to read Sentinel-1/2, GPM, WorldCover and MapBiomas.
+
+**ENL (equivalent number of looks)**: mean² / variance of a polygon's pixel intensities; how many independent looks the data behave like.
+
+**EPSG / UTM**: codes for map projections; each site uses its UTM zone (Morelos EPSG:32614, Brazil EPSG:32723) so distances and areas are in metres.
+
+**F test / ratio test**: a test of whether a polygon's mean backscatter changed between two dates beyond what speckle explains.
+
+**Felzenszwalb segmentation**: a classical graph-based algorithm that groups similar neighbouring pixels into regions.
+
+**Gate A / gate B**: the radar-only and optical-only variants of the cane gate.
+
+**GroupKFold**: cross-validation where all rows of one field stay in the same fold.
+
+**GUNW**: NISAR Level-2 Geocoded Unwrapped Interferogram; here only its coherence layer is used.
+
+**Green harvest**: mechanised cutting without burning, leaving a straw "trash blanket" on the field (Brazil site).
+
+**HDF5**: the file format of NISAR products.
+
+**Ingenio**: a sugar mill; the Morelos AOI is the supply area of the Ingenio Emiliano Zapata (Zacatepec).
+
+**Leave-one-field-out**: cross-validation that holds out one field at a time.
+
+**LLM (large language model)**: a pretrained text model; here Claude Haiku 5.5 writes the field summaries.
+
+**Logistic regression**: a linear model that outputs a probability.
+
+**MapBiomas**: annual 30 m land-cover maps of Brazil with a sugar-cane class.
+
+**NBR (normalised burn ratio)**: (B8 − B12) / (B8 + B12) from Sentinel-2; drops after burning.
+
+**NDVI**: (NIR − red) / (NIR + red) from Sentinel-2; high for green canopy, low for bare soil.
+
+**NISAR**: the NASA-ISRO L-band and S-band SAR satellite; this project uses its L-band products.
+
+**`no_baseline`**: status of a cane polygon whose candidate harvest has fewer than 3 standing looks before it in its orbit.
+
+**Out-of-fold**: a prediction made by a model that did not see that field in training.
+
+**`p_cane`, `p_cane_radar`, `p_cane_optical`**: the delivered gate's P(cane), and the radar-only and optical-only probabilities.
+
+**PostGIS**: the spatial extension of PostgreSQL used by the product database.
+
+**Precision / recall**: share of predicted cane that is cane / share of cane that is predicted.
+
+**Provisional (data maturity)**: NISAR products released before final calibration; values may change.
+
+**Ratoon**: cane regrowing from the stubble after a cut.
+
+**Safra**: the Brazilian name for the cane harvest season (Centre-South: April to November).
+
+**SCL (scene classification layer)**: the Sentinel-2 L2A per-pixel class map used to mask clouds and shadows.
+
+**Segment**: one polygon from the automatic segmentation; often a fragment of a field.
+
+**Sentinel-1 / Sentinel-2**: ESA's C-band radar and optical satellites.
+
+**SNIC**: a superpixel segmentation in Earth Engine, used only for p36's neighbours.
+
+**Supplemental frames**: NISAR acquisitions before the standard observation series (2026-06-17), with no guaranteed cadence.
+
+**Vector tiles (MVT)**: map data cut into tiles on the server (`ST_AsMVT` in PostGIS), so the browser loads only what is in view.
+
+**Verifier**: deterministic code that checks every summary against its facts before it is shown.
+
+**VIIRS**: the instrument on Suomi-NPP, NOAA-20 and NOAA-21 whose 375 m fire detections FIRMS serves.
+
+**WorldCover**: ESA's 10 m global land-cover map for 2021.
+
+**xgboost**: a gradient-boosted decision-tree library; the delivered harvest detector.

@@ -1,264 +1,169 @@
 # Data sources
 
-One entry per source. "Access" says how this repository gets the data. Check the provider's
-current terms before redistributing anything; the citation lines are starting points to
-confirm against the provider pages.
+One entry per source, all with the same fields. "Access" is how this repository gets the
+data; everything downloaded goes under `data/` (git-ignored). Check the provider's current
+terms before redistributing anything. Citations [n] are in [REFERENCES.md](REFERENCES.md).
 
 ---
 
-## NISAR L2 GCOV (L-band)
+## NISAR L2 GCOV (L-band backscatter)
 
-- **What:** NASA-ISRO SAR mission, Level-2 Geocoded Polarimetric Covariance product.
-  Radiometrically terrain-corrected backscatter (gamma-0) on a map grid, delivered as HDF5.
-- **Resolution / cadence:** 12-day repeat per track. Demo scenes: track 19, frame 11,
-  ascending, dual-pol HH+HV, frequency A 40 MHz + frequency B 5 MHz ("40+5"). About 7 GB
+- **Product:** NISAR Level-2 Geocoded Polarimetric Covariance (GCOV), PROVISIONAL
+  (collection `NISAR_L2_GCOV_PROVISIONAL_V1`, CRID P05023) [16, 17]. Radiometrically
+  terrain-corrected gamma-0 on a map grid, HDF5. Datasets used:
+  `/science/LSAR/GCOV/grids/frequencyA/HHHH` and `.../HVHV` (linear power).
+- **Provider:** NASA/JPL-ISRO NISAR Project, distributed by ASF DAAC.
+- **Resolution:** 10 m grid; 12-day repeat per track; dual-pol HH + HV, 40 + 5 MHz. About 7 GB
   per scene.
-- **Access:** `scripts/00_download_nisar.py` uses `asf_search` (dataset `NISAR`,
-  processingLevel `GCOV`, dataMaturity `PROVISIONAL`) and downloads from ASF with Earthdata
-  Login credentials into `data/nisar/`.
-- **Dataset paths inside the HDF5:**
-  `/science/LSAR/GCOV/grids/frequencyA/HHHH` and `/science/LSAR/GCOV/grids/frequencyA/HVHV`
-  (the diagonal covariance terms, i.e. HH and HV backscatter power, linear scale).
-- **Licence / citation:** NASA data, open with no restrictions. Cite as: NASA/JPL-ISRO NISAR
-  Project, *NISAR L2 Geocoded Polarimetric Covariance (GCOV), Provisional*, distributed by
-  ASF DAAC, accessed <date>. (Confirm the DOI on the ASF collection page.)
-- **Caveats:**
-  - Maturity is **PROVISIONAL** (collection `NISAR_L2_GCOV_PROVISIONAL_V1`), so calibration
-    and formats may still change. Products seen so far are **CRID P05023**.
-  - The **standard observation series starts 2026-06-17**. Earlier acquisitions (including the
-    2025-11 to 2026-05 demo scenes) are **supplemental frames**, so cadence and coverage before
-    that date are not guaranteed.
-  - **Permanent gap from 2026-07-27 to 2026-08-10**: there will never be data for this window.
-  - The files are large: subset to the area of interest early and never commit `.h5`.
-  - A second pass covers the site: **descending track 113, frame 79** (about 01:13 UTC,
-    against about 12:05 UTC for ascending), same 40+5 HH+HV mode. Downloaded with
-    `--direction DESCENDING` into `data/nisar/GCOV_DESCENDING_t113f79/`. Keep it as a
-    separate series because the viewing geometry is different.
+- **Dates used:**
+  - Morelos ascending t19 f11 (~12:05 UTC): 15 scenes, 2025-11-23 .. 2026-05-10.
+  - Morelos descending t113 f79 (~01:13 UTC): 15 scenes, 2025-11-18 .. 2026-05-17 (one
+    missing scene around 03-30, a 24-day gap).
+  - Ribeirão Preto ascending t146 f167 (~08:59 UTC): 10 scenes, 2026-06-24 .. 2026-10-22,
+    UTM 23S grid. Descending t125 f99 (~21:23 UTC): 8 scenes, 2026-06-22 .. 2026-10-20, UTM
+    22S grid (reprojected). Brazil total with GUNW: 26 files, 142.7 GB.
+- **Access:** `scripts/00_download_nisar.py [--site <site>] [--product GCOV|GUNW]
+  [--direction ...] [--track N --frame N] --download` (`asf_search`, dataset `NISAR`,
+  dataMaturity `PROVISIONAL`), Earthdata Login credentials in `.env`.
+- **Licence / terms:** NASA open data, no restrictions. Cite as NASA/JPL-ISRO NISAR Project,
+  *NISAR L2 GCOV, Provisional*, ASF DAAC, accessed <date> (DOI to confirm on the ASF
+  collection page).
+- **Known issues** (provisional products, see the ASF NISAR documentation [17]):
+  - calibration and formats may change between releases;
+  - the standard observation series starts 2026-06-17; earlier acquisitions, including all
+    Morelos scenes, are supplemental frames with no guaranteed cadence;
+  - permanent gap 2026-07-27 .. 2026-08-10 (Brazil: ascending 07-30, descending 07-28 and
+    08-09 fall in it; descending 09-14 is also missing);
+  - no NISAR L2 product covers any Thai cane region in 2025-11 .. 2026-05 (searched
+    2026-10-26), which is why the second site is in Brazil; nothing over Ribeirão Preto
+    before 2026-06-22.
 
 ## NISAR L2 GUNW (L-band interferometric coherence)
 
-- **What:** Level-2 Geocoded Unwrapped Interferogram. Each file is one **nearest-neighbour
-  12-day pair** (reference date and secondary date) from the same track. It contains wrapped
-  and unwrapped interferometric phase, **coherence magnitude**, connected components,
-  ionosphere phase screen and pixel offsets, all on map grids. Co-pol only (**HH** for our
-  track; VV in other modes), **frequency A** only (40 MHz). About 2.3 GB per pair.
-- **Access:** `scripts/00_download_nisar.py --product GUNW --track 19 --frame 11`
-  (processingLevel `GUNW`, dataMaturity `PROVISIONAL`, collection
-  `NISAR_L2_GUNW_PROVISIONAL_V1`) into `data/nisar/GUNW_ASCENDING_t19f11/`. ASF matches on
-  temporal overlap, so pairs that straddle the window edges are included (2025-11-11/11-23
-  and 2026-05-10/05-22).
-- **Coherence layer** (checked in the `20251111/20251123` file, CRID P05023):
-  - `/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH/coherenceMagnitude`:
-    **20 m** spacing, 16740 x 17064, float32, NaN fill. **This is the one we use**, because
-    it resolves individual fields.
-  - `/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/HH/coherenceMagnitude`:
-    80 m (multilooked) version, 4185 x 4266.
-  - Both are in UTM zone 14N, **EPSG:32614** (scalar `projection` in the same group). x and y
-    come from `xCoordinates`/`yCoordinates`, and the spacing from
-    `xCoordinateSpacing`/`yCoordinateSpacing` (y is negative, north-up). The valid-pixel mask
-    is `mask` one level up.
-- **Dataset paths read by `src/zafra/multisignal.py`** (`extract_coherence_series`):
-  - coherence: `/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH/coherenceMagnitude`
-  - grid: `.../wrappedInterferogram/xCoordinates` and `.../yCoordinates` (pixel centres; the
-    `HH` subgroup holds identical copies), `.../wrappedInterferogram/projection` (EPSG:32614).
-    Spacing is computed from the coordinates (20 m, -20 m) and the window is cut with
-    `gcov.window_for_geometry`, the same as for GCOV. The coordinates carry no
-    `pixel_coordinate_convention` attribute; their values (odd multiples of 10 m on a 20 m grid)
-    are consistent with pixel centres.
-  - QA only: `.../wrappedInterferogram/mask` (uint32; bits 0-7 = water flag and the reference and
-    secondary subswath digits, 0 = invalid sample; bits 8-23 = RSLC anomaly flags; 255 = fill).
-    Flagged pixels are counted (`mask_flagged_px`) but not removed. Only NaN pixels are dropped.
-  - pair dates: `/science/LSAR/identification/referenceZeroDopplerStartTime` and
-    `secondaryZeroDopplerStartTime`.
-  - Field statistic: mean and median coherence of the pixels whose **centre** lies inside the
-    polygon, with NaN excluded.
-- **Use in this project:** **coherence only**. Low coherence across a pair is evidence that
-  the field changed (cut, burnt or trafficked) between the two dates. We do **no deformation
-  processing**: no phase unwrapping checks, no ionosphere or troposphere correction, no
-  time-series inversion.
-- **Licence / citation:** NASA data, open with no restrictions. Cite as: NASA/JPL-ISRO NISAR
-  Project, *NISAR L2 Geocoded Unwrapped Interferogram (GUNW), Provisional*, distributed by
-  ASF DAAC, accessed <date>. (Confirm the DOI on the ASF collection page.)
-- **Caveats:** PROVISIONAL maturity, the same supplemental-frame caveats as GCOV, and the
-  same permanent July/August 2026 gap. Older BETA products (CRID X050xx) also exist and
-  include a 24-day 2025-11-23/12-17 pair. They are not downloaded, because PROVISIONAL
-  reprocessing covers every date. A missing acquisition breaks the 12-day chain, so check the
-  date pairs before treating the series as regular.
-
-## Sentinel-1 GRD (C-band) via Google Earth Engine
-
-- **What:** ESA Copernicus C-band SAR, Ground Range Detected, already calibrated and
-  terrain-corrected to sigma-0 in dB by Earth Engine. Collection `COPERNICUS/S1_GRD`.
-- **Resolution / cadence:** 10 m pixels (IW mode), VV+VH. Revisit is 6-12 days depending on
-  which satellites in the constellation are operating.
-- **Access:** Earth Engine Python API (`earthengine-api`, `geemap`) with `EE_PROJECT`. Not
-  downloaded yet; exports go to `data/sentinel1/`.
-- **Licence / citation:** Copernicus Sentinel data, free and open. Credit:
-  "Contains modified Copernicus Sentinel data [year]".
-- **Caveats:** C-band reaches less far into the canopy than L-band, so it saturates sooner
-  over tall cane. Earth Engine's GRD is sigma-0, not gamma-0, so do not mix it with NISAR
-  values without normalising. Ascending and descending passes have different geometry; keep
-  them as separate series.
-
-## NASA FIRMS VIIRS active fires (375 m)
-
-- **What:** Active-fire detections (thermal anomalies) from VIIRS on Suomi-NPP, NOAA-20 and
-  NOAA-21, with fire radiative power (FRP) and confidence.
-- **Resolution / cadence:** 375 m pixels. Each satellite overpasses roughly twice a day (day
-  and night).
-- **Access:** `scripts/00_download_firms.py` calls the FIRMS area API
-  (`/api/area/csv/<key>/<SOURCE>/<bbox>/<1..5 days>/<date>`) with `FIRMS_MAP_KEY`. It uses
-  Standard Processing (`*_SP`) where available and Near Real-Time (`*_NRT`) for recent days.
-  Output: `data/firms/`.
-- **Licence / citation:** NASA open data. Credit: "We acknowledge the use of data and imagery
-  from NASA's Fire Information for Resource Management System (FIRMS)
-  (https://earthdata.nasa.gov/firms), part of NASA's Earth Science Data and Information
-  System (ESDIS)." Also cite the VIIRS 375 m active fire product (Schroeder et al., 2014).
-- **Caveats:** A detection is a pixel centre, not a field outline. Small or short cane burns
-  can be missed, especially under cloud or between overpasses. A 375 m pixel covers several
-  fields. NRT records are later replaced by SP, so re-download before the final analysis.
-  The API allows at most 5 days per request.
+- **Product:** NISAR Level-2 Geocoded Unwrapped Interferogram (GUNW), PROVISIONAL
+  (`NISAR_L2_GUNW_PROVISIONAL_V1`, CRID P05023) [17]. Only the coherence magnitude is used:
+  `/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH/coherenceMagnitude`. No
+  phase or deformation processing.
+- **Provider:** NASA/JPL-ISRO NISAR Project, ASF DAAC.
+- **Resolution:** 20 m grid (the 80 m unwrapped-grid version is not used); one file per
+  nearest-neighbour 12-day pair; HH, frequency A. About 2.3 GB per pair.
+- **Dates used:** Morelos ascending t19 f11, 16 pairs from 2025-11-11/11-23 to
+  2026-05-10/05-22. Ribeirão Preto ascending t146 f167, 8 pairs (7 at 12 days, 1 at 24).
+- **Access:** `scripts/00_download_nisar.py --product GUNW ...`; read by
+  `src/zafra/multisignal.py` (`extract_coherence_series`). Grid from `xCoordinates` /
+  `yCoordinates` (pixel centres) and `projection`; NaN pixels dropped, mask flags counted.
+- **Licence / terms:** as GCOV.
+- **Known issues:** as GCOV. Older BETA products (CRID X050xx) exist and are not used. A
+  missing acquisition breaks the 12-day chain.
 
 ## Sentinel-2 L2A (optical)
 
-- **What:** ESA Copernicus multispectral surface reflectance. Earth Engine collection
-  `COPERNICUS/S2_SR_HARMONIZED`.
-- **Resolution / cadence:** 10-20 m pixels, about 5-day revisit.
-- **Access:** Earth Engine Python API. Used for visual checks (NDVI drop after harvest,
-  dark burn scars), per-field NDVI series (`optical.s2_ndvi_series`), and to draw field
-  boundaries into `data/fields/`.
-- **Area-wide exports (exercise 4d, `scripts/12_s2_images.py`):** over the FIRMS bbox
-  (lon −99.35..−99.05, lat 18.50..18.75) on a 10 m EPSG:32614 grid of 3168 × 2771 px, via
-  `ee.Image.getDownloadURL` in 1000 × 1000 px tiles (400 × 400 for the 77-band stack; one
-  request is capped at ~48 MB), each on an explicit `crs_transform`, into `data/s2/`
-  (git-ignored):
-  - the clearest scene of Dec 2025-Jan 2026 (2026-01-10): B4, B3, B2, B8, NDVI;
-  - the crop-year 2025/26 NDVI median, std, min and clear-look count;
-  - a 77-date NDVI stack (int16).
-  All use the SCL mask per pixel (classes 4-7 kept). Same-date granules are mosaicked.
-- **Licence / citation:** "Contains modified Copernicus Sentinel data [year]".
-- **Caveats:** Clouds are a problem in the rainy season, though the zafra (Nov-May) is mostly
-  dry. Use the SCL band or Cloud Score+ to mask clouds. The harmonised collection removes the
-  2022 processing-baseline offset.
+- **Product:** Copernicus Sentinel-2 MSI Level-2A surface reflectance, Earth Engine
+  collection `COPERNICUS/S2_SR_HARMONIZED` [20, 28]. Bands B2, B3, B4, B8 (NDVI), B12 (NBR,
+  p36 check only), SCL for per-pixel masking (classes 4-7 kept).
+- **Provider:** ESA / European Commission, Copernicus; through Google Earth Engine.
+- **Resolution:** 10 m (SCL 20 m); ~5-day revisit.
+- **Dates used:** Morelos per-field series 2024-10-12 .. 2026-06-29 (labels, script 07, and
+  the p36 check); area-wide crop year 2025-06-01 .. 2026-05-31 (clearest scene 2026-01-10, 64-78
+  clear looks, 77-date NDVI stack). Ribeirão Preto 2025-12-01 .. 2026-10-20.
+- **Access:** Earth Engine Python API with `EE_PROJECT`; per-field series in
+  `src/zafra/optical.py`, area-wide tiled export in `scripts/12_s2_images.py [--site]` into
+  `data/s2/`.
+- **Licence / terms:** free and open Copernicus data. Credit: "Contains modified Copernicus
+  Sentinel data [year]".
 
-## ESA WorldCover 2021 (land cover)
+## Sentinel-1 GRD (C-band)
 
-- **What:** ESA WorldCover 10 m global land cover, version 200 (2021), 11 classes from
-  Sentinel-1 and Sentinel-2. Earth Engine collection `ESA/WorldCover/v200`, band `Map`.
-- **Resolution / cadence:** 10 m, a single map for 2021.
-- **Access:** Earth Engine Python API (`optical.worldcover_image`), exported with the
-  Sentinel-2 rasters to `data/s2/worldcover_2021.tif`.
-- **Use in this project:** exercise 4d only. Segments whose majority class is built-up (50)
-  or permanent water (80) are dropped. Also used to describe the gate's cane calls by land
-  cover; it is not an input to any model.
-- **Licence / citation:** CC BY 4.0. Zanaga, D. et al. (2022). *ESA WorldCover 10 m 2021
-  v200*. doi:10.5281/zenodo.7254221.
-- **Caveats:** 2021, not the 2025/26 season. Its stated overall accuracy is ~77 %; tall cane
-  is often mapped as tree cover or cropland.
+- **Product:** Copernicus Sentinel-1 IW GRD, sigma-0 in dB, Earth Engine collection
+  `COPERNICUS/S1_GRD` [21]. VH only.
+- **Provider:** ESA / European Commission, Copernicus; through Google Earth Engine.
+- **Resolution:** 10 m; 6-12-day revisit.
+- **Dates used:** p36 ground-truth check of the 2024-25 harvest only (ascending t78, 27
+  scenes; descending t143, 17 scenes), script 09. Not used by the pipeline.
+- **Access:** Earth Engine Python API.
+- **Licence / terms:** as Sentinel-2.
 
-## GPM IMERG (precipitation)
+## NASA FIRMS VIIRS active fires
 
-- **What:** NASA Global Precipitation Measurement, multi-satellite precipitation estimates.
-  Earth Engine collection `NASA/GPM_L3/IMERG_V07`.
-- **Resolution / cadence:** 0.1 degrees (about 11 km), every 30 minutes.
-- **Access:** Earth Engine Python API, aggregated to daily totals over the demo area.
-- **Licence / citation:** NASA open data. Huffman, G.J., et al., *GPM IMERG Final
-  Precipitation L3 Half Hourly 0.1 degree x 0.1 degree V07*, GES DISC.
-- **Caveats:** Used only to flag rain on or just before a SAR acquisition. Wet soil and wet
-  canopy raise backscatter and can look like a harvest change. Its cells are far coarser than
-  a field.
+- **Product:** VIIRS 375 m active fire detections from Suomi-NPP, NOAA-20 and NOAA-21, with
+  fire radiative power and confidence [18, 19]. Standard Processing (`*_SP`) where available,
+  Near Real-Time (`*_NRT`) after.
+- **Provider:** NASA FIRMS (ESDIS).
+- **Resolution:** 375 m pixels; each satellite passes about twice a day (Morelos ~01:30 and
+  ~13:30 local).
+- **Dates used:** Morelos 2024-11-01 .. 2026-05-31 (1 097 detections in the AOI in the
+  2025-26 zafra). Ribeirão Preto 2026-04-01 .. 2026-10-25 (17 detections).
+- **Access:** `scripts/00_download_firms.py [--site <site>]`, FIRMS area API with
+  `FIRMS_MAP_KEY` (at most 5 days per request), into `data/firms/`.
+- **Licence / terms:** NASA open data. Credit: "We acknowledge the use of data and imagery
+  from NASA's Fire Information for Resource Management System (FIRMS)
+  (https://earthdata.nasa.gov/firms), part of NASA's Earth Science Data and Information
+  System (ESDIS)."
 
-## CONADESUCA weekly harvest reports
+## ESA WorldCover 2021
 
-- **What:** Mexico's Comité Nacional para el Desarrollo Sustentable de la Caña de Azúcar
-  publishes weekly zafra progress reports per sugar mill (cane milled, area harvested, yield,
-  KARBE). The relevant local mill is the Zacatepec mill.
-- **Resolution / cadence:** Weekly, aggregated per mill (no per-field data).
-- **Access:** Manual download from the CONADESUCA / Government of Mexico website. Not
-  automated in this repo.
-- **Licence / citation:** Government of Mexico public information. Cite the CONADESUCA report
-  title and week.
-- **Caveats:** Totals are per mill and cannot validate individual fields, only the shape of
-  the season (start, peak, end). Report formats change between seasons.
-- **Cane area (TODO, author):** no figure for the Ingenio Emiliano Zapata supply area or for
-  Morelos is recorded here yet. Exercise 4d's area-wide gate gives 9 943 ha of cane-like
-  segments in the FIRMS bbox for 2025/26 (`docs/VALIDATION.md`). Add the CONADESUCA
-  harvested-area figure for zafra 2025/26 (report title and week) to compare.
+- **Product:** ESA WorldCover 10 m 2021 v200, Earth Engine collection `ESA/WorldCover/v200`,
+  band `Map` [23].
+- **Provider:** ESA.
+- **Resolution:** 10 m; one map for 2021. Stated overall accuracy ~77 %; tall cane is often
+  mapped as tree cover or cropland.
+- **Dates used:** 2021 map, both sites.
+- **Access:** Earth Engine (`optical.worldcover_image`), exported with the Sentinel-2 rasters.
+  Used to drop built-up and water segments and to flag cane calls on trees or grassland;
+  never a model input.
+- **Licence / terms:** CC BY 4.0. Zanaga, D. et al. (2022), doi:10.5281/zenodo.7254221.
 
----
+## GPM IMERG precipitation
 
-## Second site (exercise 5): Thailand candidates and the Ribeirão Preto fallback
+- **Product:** GPM IMERG Final, half-hourly, V07, Earth Engine collection
+  `NASA/GPM_L3/IMERG_V07` [22].
+- **Provider:** NASA GES DISC.
+- **Resolution:** 0.1° (~11 km), 30 min.
+- **Dates used:** Morelos 2025-11 .. 2026-05, 3-day totals before each acquisition at the 38
+  reference-field centroids (`data/features/gpm_rain_3d.csv`). Computed but not a model
+  input; shown as context in figures and in the reference-field summaries.
+- **Access:** Earth Engine Python API.
+- **Licence / terms:** NASA open data. Cite Huffman, G. J. et al., GPM IMERG Final
+  Precipitation L3 Half Hourly 0.1° × 0.1° V07, GES DISC.
 
-Site settings live in `configs/<site>.yaml` (`zafra.site`); the data below is fetched with
-`--site brazil` by scripts 00 and 12.
+## MapBiomas Brazil, Collection 10
 
-### NISAR over Thailand: no coverage for the 2025/26 crushing season
-
-- **Searched (2026-10-26):** `asf_search` dataset `NISAR`, processingLevel GCOV and GUNW,
-  `dataMaturity` PROVISIONAL (and without the maturity filter), 2025-11-01 .. 2026-05-31,
-  intersecting Khon Kaen / Udon Thani, Kanchanaburi / Suphan Buri and Nakhon Sawan /
-  Kamphaeng Phet. **Zero products** for each, and zero over all of Thailand.
-- Thai coverage starts 2026-06-19 (standard observation series), 8-11 acquisitions per frame
-  through 2026-10-19, ascending and descending, for all three regions. That is the
-  growing season; the 2026/27 crushing season (Dec .. Apr) is not acquired yet. Table:
-  `results/5_brazil/transfer.md`.
-- **Thai cane statistics:** not needed. Thailand was not run, for lack of NISAR coverage
-  in 2025/26.
-
-### NISAR L2 GCOV / GUNW, Ribeirão Preto (Brazil)
-
-- **Frames:** GCOV ascending track 146 frame 167 (10 scenes, 2026-06-24 .. 2026-10-22,
-  ~08:59 UTC), GCOV descending track 125 frame 99 (8 scenes, 2026-06-22 .. 2026-10-20,
-  ~21:23 UTC), GUNW ascending track 146 frame 167 (8 pairs, 7 at 12 days, 1 at 24 days).
-  Same 40+5 MHz HH+HV mode and CRID P05023 as Morelos; the ascending grid is UTM 23S
-  (EPSG:32723). 142.7 GB in total.
-- **Gaps:** ascending 2026-07-30 and descending 2026-07-28 / 2026-08-09 fall in the permanent
-  2026-07-27 .. 08-10 gap; descending also lacks 2026-09-14.
-- **Access:** `scripts/00_download_nisar.py --site brazil --product <GCOV|GUNW> --direction
-  <dir> --track <t> --frame <f> --download`, into `data/nisar/brazil/<product>_<dir>_t<t>f<f>/`.
-- **Caveat:** nothing before 2026-06-22, i.e. the first ~third of the Centre-South harvest
-  (April .. June) is never observed by radar.
-
-### FIRMS VIIRS, Ribeirão Preto
-
-- `scripts/00_download_firms.py --site brazil`: bbox lon −48.04 .. −47.76, lat −21.04 ..
-  −20.76, 2026-04-01 .. 2026-10-25, SNPP / NOAA-20 / NOAA-21 (SP to 2026-06-30, NRT after),
-  into `data/firms/brazil/`. 17 detections in seven months: São Paulo state phased out
-  pre-harvest burning (state law 11.241/2002 and the 2007 agro-environmental protocol), so
-  fire is not a harvest marker here.
-
-### Sentinel-2 L2A and WorldCover, Ribeirão Preto
-
-- `scripts/12_s2_images.py --site brazil`, same products and processing as Morelos, on a
-  10 m UTM 23S grid: clearest scene of 2025-12-01 .. 2026-01-31, the temporal composite and
-  per-date NDVI stack over the crop year 2025-12-01 .. 2026-11-30 (data to 2026-10-20),
-  WorldCover 2021. Files
-  in `data/s2/brazil/` (git-ignored).
-
-### MapBiomas Brazil, Collection 10 (land use, 2024)
-
-- **What:** annual 30 m land-use / land-cover map of Brazil from Landsat, with an explicit
-  **sugar cane** class (20). https://brasil.mapbiomas.org. The 2024 raster used here is
-  from **Collection 10**. Earth Engine asset
+- **Product:** annual land use / land cover of Brazil, 30 m from Landsat, class 20 = sugar
+  cane; Earth Engine asset
   `projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v2`,
-  band `classification_2024`.
-- **Use in this project:** exercise 5 only. Choosing the AOI (the 30 km window inside the
-  three NISAR frames with the highest cane share), and an independent check of the cane gate
-  (`scripts/16_transfer_validation.py`, majority class per segment, resampled to the 10 m
-  S2 grid). Also the labels of the "with local labels" row of the gate table, where gate B
-  is re-fitted with spatial-block CV, as a reference only. MapBiomas is never an input to
-  a delivered model.
-- **Licence / citation:** CC BY 4.0. MapBiomas Project, Collection 10 of the Annual Series
-  of Land Use and Land Cover Maps of Brazil, accessed 2026-10-26 via Earth Engine.
-- **Caveats:** 2024, one safra before the test season; 30 m pixels on 10 m segments;
-  cane renewal areas (replanted each year) may be mapped as other temporary crops.
+  band `classification_2024` [24].
+- **Provider:** MapBiomas Project.
+- **Resolution:** 30 m, resampled to the 10 m S2 grid; majority class per segment.
+- **Dates used:** 2024 map (one season before the test season), accessed 2026-10-26.
+- **Access:** Earth Engine. Used to choose the Brazil AOI, to check the gate, and as the
+  labels of the reference-only "B with local labels" row. Never an input to a delivered
+  model.
+- **Licence / terms:** CC BY 4.0.
 
-### UNICA and CONAB (Brazil cane statistics)
+## Reference fields and grower report
 
-- **UNICA** (https://www.unicadata.com.br) publishes the fortnightly Centre-South crushing
-  reports. For the 2025/26 safra, cumulative Centre-South cane crush to 1 Oct 2025 was
-  **490.93 Mt**. Use: the context for the harvest calendar (April .. November) and its
-  progress. Not compared with the segment counts: they are a different season (2026/27),
-  and a regional total is not a 30 km window.
-- **CONAB** (https://www.conab.gov.br) publishes the safra surveys of cane area and
-  production per state. Listed as a reference only; no figures are used here.
+- **Product:** 38 hand-traced polygons (`data/fields/fields_v2.geojson`) with NDVI labels and
+  harvest windows from script 07, and p36's grower report (burned and cut 2025-03-16 and
+  2026-02-26, from a dated video, not yet checked).
+- **Provider:** the author (tracing) and one grower (p36).
+- **Resolution:** polygons, median 2.6 ha.
+- **Dates used:** zafras 2024-25 and 2025-26.
+- **Access:** versioned in the repository: `data/fields/fields_v2.geojson`,
+  `data/labels/fields_v2_labels.csv`.
+- **Licence / terms:** project data. TODO (author): state the licence of the polygons and
+  the terms under which the grower's report may be shared.
+
+## Sugar-sector statistics (context only)
+
+None of these is compared with a pipeline output yet.
+
+- **CONADESUCA weekly zafra reports** [27]: cane milled, area harvested, yield and KARBE per
+  Mexican mill, weekly; manual download. CONADESUCA is the sector body set up under the
+  LDSCA [30]. TODO (author): the harvested area of the Ingenio Emiliano Zapata for zafra
+  2025-26, to compare with the 9 943 ha gated as cane.
+- **UNICA** [25]: fortnightly Centre-South crushing reports. Cumulative Centre-South crush to
+  1 Oct 2025 for safra 2025-26: 490.93 Mt (figure supplied by the author, not re-checked).
+- **CONAB** [26]: safra surveys of cane area and production per state. Listed only.
+- **Brazil fire policy:** São Paulo phased out pre-harvest cane burning (state law
+  11.241/2002 and the 2007 agro-environmental protocol) [33], so fire is not a harvest marker
+  at the Brazil site.

@@ -150,8 +150,8 @@ midpoint.
 * **Mean error is positive** in both (+6.7 / +8.1 d), against medians of 5.0 / 4.5 d:
   there is a tail of late radar dates. For A, 6 of the 36 segments with a window are
   outside ±12 d.
-* Morelos 4b (26 labelled fields, out of fold): median error about 3.5 d, against grower /
-  label dates rather than an optical rule.
+* Morelos 4b (26 labelled fields, out of fold): median error about 3.5 d, against each
+  field's Sentinel-2 NDVI harvest window (script 07), so also an optical reference.
 
 ## Distribution and uncertainty of the detected dates
 

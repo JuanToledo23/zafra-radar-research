@@ -1,117 +1,38 @@
 # AI usage
 
-This project uses AI in two separate ways, kept apart below:
+This project uses AI in two separate ways:
 
-1. **AI as a development tool**: helps write the code. It is not part of the product.
-2. **AI inside the product**: components that run when Zafra Radar processes data.
+1. **AI as a development tool** (section 1): an assistant that helped write the code and
+   documents. It is not part of the product.
+2. **AI inside the product** (section 2): components that run when Zafra Radar processes
+   data. Full design notes: [docs/AI_COMPONENTS.md](docs/AI_COMPONENTS.md).
 
----
-
-## AI as a development tool
-
-Claude Code (Anthropic) is used to speed up project scaffolding and scripting: repository
-setup, download scripts, boilerplate and documentation drafts. The scientific method, data
-choices, interpretation of results and validation are the author's own, and every
-AI-generated change is reviewed before it is committed.
+This file is the only place in the repository that describes how AI assistance was used.
 
 ---
 
-## AI inside the product
+## 1. AI as a development tool
 
-Design details for each component: `docs/AI_COMPONENTS.md`.
+**Assistant.** Claude Code (Anthropic), used from the terminal on the author's machine.
 
-### 1. Harvest classifier: **implemented and evaluated** (exercise 4b)
+**What it did.** From the author's written brief for each exercise, it wrote code
+(download scripts, feature extraction, models, drivers, the product skeleton), tests and
+documentation drafts; ran the scripts; and reported results, including failures and
+surprises. The log below lists, per session, what it wrote, which choices it made where the
+brief left them open, and what was changed or rejected in review.
 
-- **What it does:** For a field already known to be sugarcane, classifies each NISAR
-  acquisition as standing or harvested and gives an estimated harvest date. Deciding
-  whether a field is cane is a separate upstream step (the cane gate, exercise 4c). It is reported
-  next to the rule-based and ratio-test detectors (exercise 4), on the same fields.
-- **Trained on:** Per-acquisition features from NISAR GCOV HV/HH (ascending and descending),
-  NISAR GUNW coherence and FIRMS VIIRS fires. GPM IMERG rain is computed but not used: it
-  marks the season rather than the harvest in this data. The training set is 26 cane
-  fields in Morelos over one zafra (2025-11 to 2026-05): 746 labelled acquisitions. The labels
-  are each field's Sentinel-2 NDVI harvest window (exercise 7), not dated field visits.
-  The models are logistic regression and a small xgboost (scikit-learn, xgboost), trained
-  here from scratch.
-- **How good it is:** Validated by holding out whole fields (5-fold GroupKFold). The median
-  date error is 3.5-4.5 days, against 11.5 days for the ratio test (both orbits) and 19 for
-  the rule, on the same 26 fields. With 26 fields, differences of 2-3 days are not
-  significant.
-- **What it is NOT:** It is not a pretrained or third-party model. It cannot tell whether a
-  field is cane or was harvested: it fires on 10-11 of the 11 non-cane control fields. It is only
-  tested on one season in one area. It does not detect burning; fires come from FIRMS.
-  Details and failure cases: `docs/AI_COMPONENTS.md`, `docs/VALIDATION.md`.
+**What stayed with the author.** The scientific method, the choice of data, sites and
+models, the interpretation of results, and every decision recorded below as "author's
+decision" or "after review". Every change was reviewed by the author before it was
+committed. Where the assistant made a choice the brief left open, the log says so, and the
+choice was kept or changed in review.
 
-### 1b. Cane / non-cane gate: **implemented and evaluated** (exercise 4c)
+### Decisions log
 
-- **What it does:** For any field polygon and zafra, gives P(sugarcane), so the harvest
-  classifier only runs on cane. The output is `p_cane`, a yes/no at 0.5, a confidence
-  tier, and `p_cane_radar` (the radar-only probability, for the map).
-- **Trained on:** One row per field.
-  - The operational gate uses Sentinel-2 NDVI phenology.
-  - A radar-only model (NISAR HV/HH statistics, largest HV drop, pre-season HV level, GUNW
-    coherence) is always reported next to it as independent evidence.
-  - **38 training rows** (26 cane, 12 non-cane) in Morelos, zafra 2025-26.
-  - Labels come from NDVI phenology and visual tracing, not field visits.
-  - Logistic regression, trained here from scratch.
-- **How good it is:** Leave-one-field-out:
-  - Optical gate: 37/38 correct, no cane field dropped. This is partly circular: the labels
-    come from NDVI.
-  - Radar only: 34/38 correct, 23/26 cane fields found, 1 false positive (probably cane in
-    fact). It drops the one grower-confirmed field, which is why it is not the gate.
-  - As a gate, it cuts the harvest detectors' false alarms on the 12 non-cane fields to 1.
-- **What it is NOT:** It is not validated against field visits. The NDVI variants are
-  partly circular because the labels come from NDVI. It is untested on land covers absent
-  from the 38 fields (orchards, towns). The radar check misses cane with a weak radar cut,
-  including the one grower-confirmed field (p36).
+One entry per session: date, what the AI helped with, what was changed or rejected. The
+log is itemised per exercise from exercise 4b on; earlier sessions (exercises 1-4, scripts
+05-09) are not itemised.
 
-### 2. Field segmentation: **SAM evaluated, not used** (exercise 4d)
-
-- **What it does:** Draws candidate field polygons over the whole supply area from
-  Sentinel-2, so the gate and the harvest classifier can run area-wide.
-- **Model / data:**
-  - Segment Anything (SAM), a **pretrained foundation model** from Meta AI.
-  - ViT-B checkpoint, Apache 2.0 licence, through samgeo.
-  - Used as-is, with no training or fine-tuning.
-  - Run on a 10 m true-colour scene and on an NDVI-history composite of the area.
-- **How good it is:**
-  - SAM matched 9 (true colour) and 2 (NDVI composite) of the 38 hand-traced fields with
-    IoU ≥ 0.5. It merges neighbouring cane fields into blocks.
-  - A classical, non-AI segmentation (Felzenszwalb on the NDVI history) matched 24 of 38,
-    median IoU 0.58.
-  - **The delivered polygons come from the classical method.**
-- **What it is NOT:** It does not identify the crop or detect harvest. The delivered
-  segments are fragments of fields, not cadastral fields.
-
-### 3. Per-field summary: **implemented, LLM measured live** (exercise 6)
-
-- **What it does:** Turns one polygon's computed results into a summary of at most 70
-  words, in Spanish and English. Example: "p36, 21.4 ha. Caña: confianza baja. Fecha:
-  12 feb 2026 ±2.5 días." Explicit alert rules (deterministic code, not AI)
-  flag fires outside the burn window, fires without a harvest, imprecise dates, gate
-  disagreement and missing baselines.
-- **Two renderers:**
-  - A deterministic template, always available.
-  - An LLM, Anthropic Claude Haiku 5.5 through the Messages API. It is given only the
-    polygon's facts, pre-formatted, with a prompt (`src/zafra/prompts/field_summary.md`)
-    that forbids any fact not in the input, advice and speculation.
-- **Checked by:** A verifier on every output. The harvest date, uncertainty, area and
-  alert codes must appear verbatim, and no other date, number or code may appear. If the
-  check fails, or the API key or the API is unavailable, the template text is shown and
-  the reason recorded.
-- **How good it is:** The template passes the verifier on 116/116 texts (58 polygons ×
-  2 languages). With the revised prompt, the LLM passes on 57 of 58 polygons (98.3 %);
-  the other one hit the output-token cap and fell back to the template. Measured cost:
-  $0.25 per 1,000 summaries.
-- **What it is NOT:** It does not detect anything, make decisions or add facts. It is not
-  legal evidence: a burn alert means a VIIRS detection near the polygon at that time. The
-  verifier checks values, not meaning. The summaries are labelled as generated text.
-
----
-
-## Log
-
-Append one line per session: date, what the AI helped with, what was changed or rejected.
 
 - 2026-10-23: Project bootstrap (layout, environment, NISAR/FIRMS download scripts, docs
   skeleton). The asf_search and FIRMS API details were checked against the installed library
@@ -258,3 +179,28 @@ Append one line per session: date, what the AI helped with, what was changed or 
     * `postgis/postgis:16-3.4` is amd64 only and runs under emulation on Apple Silicon.
   - Offline was checked with the containers on an internal network and the browser aborting
     every non-localhost request; the Mac wifi itself was not switched off.
+- 2026-10-27: Exercise 8, documentation audit. Claude Code checked every numeric claim in
+  `README.md`, `AI_USAGE.md` and `docs/` against the committed results and the data on
+  disk, fixed the statements those contradict, restructured the documents (README for
+  judges, METHODS in pipeline order, VALIDATION as one table per exercise, new
+  `docs/REFERENCES.md`) and copied three result figures to `docs/figures/`, following the
+  author's written brief. No code, data or results changed.
+  - Reference details it could not find in the repository are marked "[URL pending]"
+    rather than filled in.
+
+---
+
+## 2. AI inside the product
+
+Three AI components run in the product; a fourth was tried and rejected. Training data,
+size, metrics and limits of each: [docs/AI_COMPONENTS.md](docs/AI_COMPONENTS.md).
+
+| component | what it is | headline result |
+|---|---|---|
+| Cane gate | logistic regression trained here on 38 Morelos fields | 37/38 leave-one-field-out (optical, partly circular); 34/38 radar only |
+| Harvest detector | xgboost trained here on 26 Morelos cane fields | median date error 3.5 d out of fold; needs the gate (fires on 11/12 non-cane fields alone) |
+| Summary generator with verifier | Claude Haiku 5.5, used as-is, constrained to the polygon's facts and checked by a deterministic verifier; template fallback | 57/58 LLM summaries pass the verifier; $0.25 per 1 000 |
+| Field segmentation with SAM (rejected) | pretrained Segment Anything, used as-is | 9/38 fields matched vs 24/38 for the classical method; not used |
+
+The alert rules, the baseline rule and the delivered segmentation are deterministic code,
+not AI.

@@ -1,7 +1,8 @@
 # Methods: per-field harvest date from NISAR L-band HV backscatter
 
 Code: `src/zafra/detect/` (`rule.py`, `ratio_test.py`), driver `scripts/04_detect_harvest.py`,
-tests `tests/test_detect.py`.
+tests `tests/test_detect.py`. The trained multi-signal classifier (exercise 4b) is described
+in its own section below.
 
 ## Data
 
@@ -99,6 +100,105 @@ thresholds apply to an 84-pixel and a 718-pixel field. It is fragile near the th
 * Dating resolution is the 12-day revisit.
 * GCOV product is provisional (P05023); calibration may change between releases.
 * GPM rain is ~11 km and is not yet connected (Earth Engine not authenticated).
+
+## Multi-signal features and the trained classifier (exercise 4b)
+
+Code: `src/zafra/features.py`, `src/zafra/detect/model.py`, driver
+`scripts/10_harvest_classifier.py`, tests `tests/test_features.py`. Results:
+`results/4b/comparison.md`, `docs/VALIDATION.md`.
+
+**Scope.** This detector dates the harvest on fields already known to be sugarcane. Deciding
+whether a field is cane is a separate upstream step, the next exercise. On non-cane fields
+the detector fires almost every time; the false-alarm table in `docs/VALIDATION.md` is the
+evidence for why that step is needed.
+
+### Feature table
+
+There is one row per (field, acquisition date, orbit) for the 38 polygons of
+`fields_v2.geojson`: 15 ascending GCOV scenes (t19 f11, ~06:05 local) and 15 descending
+scenes (t113 f79, ~19:13 local the day before), giving 1140 rows. The two orbits stay as
+separate rows with an `orbit` column and are never averaged. Table:
+`data/features/fields_v2_features.{parquet,csv}`.
+
+| feature | definition |
+|---|---|
+| hv_db, hh_db, cross_ratio_db | field mean in linear power, then dB (`gcov.field_stats`, through `multisignal.extract_gcov_series`); ratio = HV − HH |
+| valid_px, n_looks, enl | pixel count; product `numberOfLooks`; ENL = mean² / var of the field's linear HV pixels on that date |
+| delta_hv_vs_baseline | HV − median HV of the first 3 acquisitions of that orbit in Nov-Dec |
+| delta_hv_vs_prev | HV − previous acquisition of the same orbit |
+| slope_hv_3 | least-squares slope (dB/day) over the previous 3 acquisitions of the same orbit, not including this one |
+| sharpness | delta_hv_vs_prev − slope_hv_3 × gap_days: how far the last step departs from the local trend (a ramp gives ~0, a cut a large negative value) |
+| coherence_mean, coherence_min | HH coherence of the 12-day ascending GUNW pair whose second date is this acquisition (20 m wrapped-interferogram grid, pixel centre in polygon); NaN on descending rows |
+| delta_coh_vs_baseline | coherence_mean − median of the field's first 3 pairs |
+| fire_7d, fire_frp_max_7d | VIIRS detections with pixel centre ≤ 200 m from the polygon in the 7 days before the acquisition time; their maximum FRP (from `data/fires/fields_v2_fires.csv`, written by `scripts/05_fires_per_field.py`) |
+| rain_3d_mm | GPM IMERG V07 (Earth Engine) total over the 3 days before the acquisition time, at the field centroid |
+| gap_days | days since the previous acquisition of the same orbit (12, or 24 across the missing descending scene of ~03-30) |
+
+All features are causal: a row uses only its own acquisition and earlier ones.
+`coherence_min` is the lowest single-pixel value. With hundreds of pixels it is mostly
+noise, and the models give it almost no weight.
+
+### Labels
+
+Training uses the 26 fields with `label == cana` and an NDVI harvest window (exercise 7;
+p36's window comes from exercise 9). A row is state 0 if its date is before
+`harvest_window_start`, state 1 if it is after `harvest_window_end`, and is dropped from
+training if it falls inside the window. That gives 746 labelled rows (343 standing, 403
+harvested) and drops 34 window rows. The other 12 fields (11 `dudoso`, 1 `no_cana`) are
+never used for training. They only count false alarms. Of these, p5 is `dudoso` but its
+NDVI hypothesis is cane, so it is reported apart.
+
+### Models
+
+* Logistic regression: median imputation with a missing-value indicator, standardization,
+  `class_weight="balanced"`.
+* xgboost: max_depth 3, learning rate 0.05, up to 300 trees, early stopping (30 rounds)
+  on an inner split of 20 % of the training *fields*. `scale_pos_weight` = n0/n1. NaN is
+  handled natively. No row or column sampling (subsample = colsample_bytree = 1.0) and a
+  fixed seed, so the fit is deterministic and does not depend on feature column order.
+* Inputs (`model.FEATURES`): every feature above plus `is_asc`, except:
+  * the absolute `hv_db` / `hh_db` (the model must be field-relative);
+  * `rain_3d_mm`, `gap_days`, `sharpness` and `slope_hv_3`, which stay in the feature
+    table but were dropped from the models after the first run.
+    * Rain and gap_days are season markers in this data: every storm (Apr 23-28) and the
+      only 24-day gap (March-April) come after every harvest. In the first run logistic
+      gave rain a positive weight.
+    * Sharpness and slope did not improve the dates. The ablation in `docs/VALIDATION.md`
+      shows both effects.
+* Validation: GroupKFold by field_id, 5 folds. Each fold model is trained on the
+  labelled rows of its training fields and predicts *every* row of the held-out fields,
+  including rows inside the window.
+* Non-cane fields are scored by a model refit on all 26 cane fields. xgboost then uses the
+  median of the per-fold best iterations, without early stopping.
+
+### Date rule (applied to every method)
+
+* Each field's rows, both orbits together, are ordered by acquisition time and thresholded
+  at P = 0.5.
+* The harvest date is the midpoint between the first acquisition classified 1 that is
+  followed by another 1, and the acquisition before it.
+* **Ratio test on both orbits.** The exercise-4 test runs on each orbit separately, with
+  its own baseline, ENL and F tests. A scene counts as harvested if it is after the
+  baseline scenes, ≥ 2 dB below baseline, and significant (step or baseline test). Those
+  per-scene decisions, both orbits merged in time, go through the same rule as the models,
+  so the comparison is at equal (~6-day) sampling.
+* **Rule.** Unchanged from exercise 4, ascending HV only: its date is the midpoint of
+  (t_{i-1}, t_i]. The ascending-only ratio test of exercise 4 is reported as a reference row.
+
+### Limitations of the classifier
+
+* **26 fields, one season, one region.** The folds hold 5-6 fields each, so one field
+  moving by one acquisition shifts the median error by several days. Differences of 2-3
+  days between variants are within that noise.
+* **No negatives with a slow, cut-free decline.** Non-cane and "dudoso" fields lose 1.5-3 dB
+  of HV from December to February with no coherence collapse. The models never saw such
+  rows labelled 0, and they fire on 10-11 of the 11 strictly non-cane fields. Hence the
+  scope above: cane/no-cane classification has to come first.
+* **Feature selection used these fields.** Dropping the four features was decided after
+  looking at out-of-fold results on the same 26 fields, so the reported errors are
+  somewhat optimistic.
+* **Labels are NDVI windows** of 2-10 days, and drying cane lowers NDVI before the cut.
+  The reference is itself uncertain by a few days.
 
 ## References
 

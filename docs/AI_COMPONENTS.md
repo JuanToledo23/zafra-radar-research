@@ -1,11 +1,12 @@
 # In-product AI components: design notes
 
 These are the three AI components that run inside Zafra Radar (not the AI used to build it;
-see `AI_USAGE.md`). Status as of 2026-10-23: none implemented.
+see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier is implemented
+(exercise 4b); the other two are not.
 
 | # | Component | Status | Exercise |
 |---|---|---|---|
-| 1 | Harvest classifier | Planned | 4b |
+| 1 | Harvest classifier (dates harvest on known cane fields) | Implemented, evaluated | 4b |
 | 2 | Field segmentation | Stretch goal | 7 |
 | 3 | Per-field LLM summary | Built during the hackathon | - |
 
@@ -13,45 +14,75 @@ see `AI_USAGE.md`). Status as of 2026-10-23: none implemented.
 
 ## 1. Harvest classifier
 
-**Purpose.** Estimate when each field was harvested more reliably than the rule-based
-baseline (exercise 4). The baseline is a fixed threshold on HV drop, which rain, soil
-moisture or partial harvest can fool. The classifier is reported next to the baseline, not
-instead of it.
+**Status (2026-10-26).** Implemented in `src/zafra/detect/model.py`, features in
+`src/zafra/features.py`, driver `scripts/10_harvest_classifier.py`. Results in
+`results/4b/comparison.md` and `docs/VALIDATION.md`. The plan below was changed where noted.
 
-**Inputs.** For each field and acquisition date:
-- NISAR GCOV HH and HV gamma-0 (field mean in linear units, converted to dB), the HV/HH
-  ratio, change from the previous date, and the field's spread (standard deviation).
-- Sentinel-1 VV/VH at the nearest date, as a cross-check (optional feature).
-- GPM IMERG rain in the 24-72 h before the acquisition.
-- FIRMS: number of fire detections and maximum FRP within a buffer around the field since
-  the previous acquisition.
-- Labels: harvest dates in `data/labels/`, judged by the author from Sentinel-2 images
-  (and burn scars where visible).
+**Purpose.** Estimate when each cane field was harvested, reported next to the exercise-4
+rule and ratio-test detectors, not instead of them.
 
-**Outputs.** For each field and acquisition interval, the probability that harvest happened
-in that interval. Per field: the most likely harvest interval and its probability.
+**Scope.** It dates the harvest on fields already known to be sugarcane. Deciding whether a
+field is cane is a separate upstream step, the next exercise; the classifier does not do it.
+The false-alarm counts below show why that step is needed.
 
-**Candidate approach.** Random Forest and XGBoost on hand-built per-date features
-(scikit-learn / xgboost), saved with joblib. Alternative: Dynamic Time Warping (DTW), which
-compares each field's backscatter curve with template harvested and unharvested curves,
-using nearest neighbours.
+**What it does.** Classifies each NISAR acquisition of a field as standing (0) or harvested
+(1). The harvest date is the midpoint between the first acquisition classified 1 that is
+confirmed by the next one, and the acquisition before it.
+
+**Inputs (as built).** One row per field, acquisition date and orbit (ascending and
+descending kept separate):
+- HV relative to the field's own Nov-Dec baseline and to the previous scene; HV − HH
+  ratio; pixel count, product looks and ENL;
+- NISAR GUNW HH coherence of the 12-day ascending pair ending on that date, and its change
+  from the field's baseline;
+- FIRMS VIIRS detections ≤ 200 m in the 7 days before.
+
+Computed but left out of the model after the first run:
+- GPM rain in the 3 days before, and the gap since the previous scene. Both mark the late
+  season in this data.
+- The HV trend over the previous 3 scenes, and "sharpness" (step minus trend). Neither
+  improved the dates.
+
+Not used, unlike the plan: Sentinel-1, the field's standard deviation, the absolute HH/HV
+levels.
+
+**Training data.** 26 cane fields in Morelos (`label == cana` in
+`data/fields/fields_v2.geojson`), one zafra (2025-11-18 .. 2026-05-17). Labels come from the
+Sentinel-2 NDVI harvest window of each field (exercise 7; p36 from exercise 9), not from
+dated field visits. 746 labelled rows (343 standing, 403 harvested); rows inside each
+window are not used for training.
+
+**Models.** Logistic regression (standardized, class-balanced, imputed NaN plus missing
+indicators) and xgboost (depth 3, ≤ 300 trees, early stopping on held-out fields). Random
+Forest and DTW from the plan were not tried.
 
 **Evaluation.**
-- Accuracy and F1 on labelled fields, compared with the rule-based baseline on exactly the
-  same fields.
-- Harvest-date error in days (|predicted − labelled| interval), compared with the baseline.
-- **Cross-validation grouped by field** (`GroupKFold`), so dates from one field never end up
-  in both training and test sets. Spatially blocked folds if the labelled fields cluster.
+- GroupKFold by field (5 folds). Out-of-fold dates are compared with the NDVI window
+  midpoint, and with the rule and the ratio test on the same 26 fields.
+- The ratio test runs on both orbits through the same date rule, so sampling is equal.
+- False alarms are counted on the 12 non-cane fields.
 
-**Risks.**
-- **Few labels.** A few dozen fields can lead to overfitting, so keep the features few and
-  the models shallow.
-- **Label noise.** Sentinel-2 can only bound a harvest between two cloud-free dates.
-- **Domain shift.** The model is valid only for this region, season and NISAR
-  provisional calibration.
-- **Leakage.** Normalising features over the whole season leaks future data into earlier
-  dates; compute features causally.
-- **Too few dates.** The 12-day revisit gives about 15 scenes per season.
+Results on these fields:
+- Median absolute date error: 4.5 days (logistic) and 3.5 days (xgboost). The ratio test
+  on both orbits gets 11.5 days (9.0 on ascending only) and the rule 19.2 days.
+- Within ±12 days on 24 of 26 fields.
+- With 26 fields, differences of 2-3 days are within one acquisition and not significant.
+- It fires on 10-11 of the 11 strictly non-cane fields.
+
+**Limits, stated plainly.**
+- It only dates a harvest on a field already known to be cane. It does not decide whether a
+  field is cane or whether it was harvested. On non-cane fields the seasonal 1.5-3 dB HV
+  decline triggers it almost every time.
+- 26 fields, one season, one area, provisional calibration. Differences of a few days
+  between model variants are within the noise of this sample.
+- The four dropped features were chosen after looking at out-of-fold results on these same
+  fields, so the errors above are somewhat optimistic. There is no untouched test set.
+- Results are reproducible: xgboost uses no row or column sampling and a fixed seed. An
+  earlier version with 0.8 column sampling moved by a few days between runs.
+- Labels are optical windows of 2-10 days, not observed cut dates.
+
+**Risks (from the plan, still open).** Few labels, label noise, domain shift (region,
+season, NISAR calibration). Leakage is handled: features are causal and folds split fields.
 
 ---
 

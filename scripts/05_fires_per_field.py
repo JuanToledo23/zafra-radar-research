@@ -1,12 +1,18 @@
 """Exercise 5: cross each field's NISAR series with VIIRS active fires (FIRMS).
 
     python scripts/05_fires_per_field.py [--buffer-m 500] [--pre-days 15]
+        [--table-fields data/fields/fields_v2.geojson]
 
 For each field: list VIIRS detections within --buffer-m of the polygon during the 2025/26
 zafra, flag the ones in the --pre-days before the END of the field's radar drop window
 (cane is burned, then cut; the cut is what makes HV backscatter drop), and flag the ones
 outside the 09:00-17:00 local burning window. Prints markdown tables and writes plots to
 outputs/fires/.
+
+It also writes data/fires/fields_v2_fires.csv: every detection (whole FIRMS record, not only
+the zafra) within --buffer-m of each polygon of --table-fields, one row per (field,
+detection), with dist_edge_m so readers can apply a tighter buffer. src/zafra/features.py
+reads this file instead of recomputing the matching.
 
 Read the results with two limits in mind (details in src/zafra/fires.py):
 * A VIIRS pixel is ~375 m wide, so a detection within 500 m may be a neighbouring field.
@@ -26,10 +32,11 @@ from matplotlib.lines import Line2D
 
 from zafra import fires as F
 from zafra import timeseries as ts
-from zafra.paths import FIELDS_DIR, FIRMS_DIR, NISAR_DIR, OUTPUTS_DIR
+from zafra.paths import FIELDS_DIR, FIRES_DIR, FIRMS_DIR, NISAR_DIR, OUTPUTS_DIR
 
 OUT_DIR = OUTPUTS_DIR / "fires"
 SERIES_CSV = OUTPUTS_DIR / "timeseries" / "series_6fields_15scenes.csv"
+FIRE_TABLE = FIRES_DIR / "fields_v2_fires.csv"
 
 # Search window for this exercise (local dates, inclusive). Wider than the official season
 # dates used in exercise 3 so that early/late burns are not cut off.
@@ -198,6 +205,11 @@ def main() -> int:
     p.add_argument("--fields", default=str(FIELDS_DIR / "fields.geojson"))
     p.add_argument("--buffer-m", type=float, default=500)
     p.add_argument("--pre-days", type=int, default=15)
+    p.add_argument(
+        "--table-fields",
+        default=str(FIELDS_DIR / "fields_v2.geojson"),
+        help=f"polygons for the per-field fire table written to {FIRE_TABLE.name}",
+    )
     args = p.parse_args()
     buffer_m = int(args.buffer_m) if args.buffer_m.is_integer() else args.buffer_m
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -300,6 +312,13 @@ def main() -> int:
         "belong to a neighbouring field (several of these fields are < 1 km apart and can "
         "share detections). 'no fire found' means no VIIRS detection, not no burn: VIIRS "
         "only looks at ~01:30 and ~13:30 local."
+    )
+
+    table = F.fires_per_field(fires, ts.load_fields(args.table_fields), buffer_m=args.buffer_m)
+    table.to_csv(FIRE_TABLE, index=False)
+    print(
+        f"\nper-field fire table: {len(table)} rows ({table['field_id'].nunique()} fields with "
+        f"a detection within {buffer_m} m) -> {FIRE_TABLE}"
     )
 
     print("\nfigures:")

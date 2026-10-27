@@ -99,6 +99,9 @@ COH_COLUMNS = [
     "sec_date",
     "coh_mean",
     "coh_median",
+    # Lowest single-pixel coherence in the polygon. With hundreds of pixels it sits near 0 on
+    # almost every pair, so it says little; kept because exercise 4b asks for it.
+    "coh_min",
     "valid_px",
     # QA: pixels inside the polygon, and how many of them the GUNW mask flags (outside the
     # swath, invalid sample in either date, or an RSLC anomaly bit). Reported, not removed:
@@ -262,6 +265,7 @@ def extract_coherence_series(gunw_dir, fields) -> pd.DataFrame:
                         "sec_date": sec,
                         "coh_mean": float(vals.mean()) if vals.size else np.nan,
                         "coh_median": float(np.median(vals)) if vals.size else np.nan,
+                        "coh_min": float(vals.min()) if vals.size else np.nan,
                         "valid_px": int(vals.size),
                         "inside_px": int(inside.sum()),
                         "mask_flagged_px": int((inside & flagged).sum()),

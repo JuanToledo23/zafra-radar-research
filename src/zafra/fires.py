@@ -106,3 +106,40 @@ def fires_near_field(
     near["distance_m"] = near.distance(field.centroid).round(0)
     near["dist_edge_m"] = near.distance(field).round(0)
     return near.to_crs(fires.crs)
+
+
+FIELD_TABLE_COLUMNS = [
+    "field_id",
+    "acq_utc",
+    "acq_local",
+    "satellite",
+    "daynight",
+    "confidence",
+    "frp",
+    "latitude",
+    "longitude",
+    "distance_m",
+    "dist_edge_m",
+]
+
+
+def fires_per_field(fires: gpd.GeoDataFrame, fields: gpd.GeoDataFrame, buffer_m: float = 500):
+    """Every detection within `buffer_m` of each field: one row per (field, detection).
+
+    A detection near two fields appears once for each. Filter on `dist_edge_m` for a tighter
+    buffer (e.g. <= 200 m) without recomputing. Times are tz-aware (UTC and local).
+    """
+    parts = []
+    for _, f in fields.iterrows():
+        near = fires_near_field(fires, f.geometry, buffer_m=buffer_m, field_crs=fields.crs)
+        parts.append(pd.DataFrame(near.drop(columns="geometry")).assign(field_id=f["id"]))
+    out = pd.concat(parts, ignore_index=True).reindex(columns=FIELD_TABLE_COLUMNS)
+    return out.sort_values(["field_id", "acq_utc"], ignore_index=True)
+
+
+def load_fire_table(path) -> pd.DataFrame:
+    """Read a table written by fires_per_field (CSV), restoring the tz-aware times."""
+    df = pd.read_csv(path)
+    df["acq_utc"] = pd.to_datetime(df["acq_utc"], utc=True)
+    df["acq_local"] = df["acq_utc"].dt.tz_convert(LOCAL_TZ)
+    return df

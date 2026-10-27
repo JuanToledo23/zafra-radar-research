@@ -157,3 +157,38 @@ Append one line per session: date, what the AI helped with, what was changed or 
   - After review, at the author's request: undated cane segments that WorldCover maps as
     trees or grassland get confidence "uncertain". The pre-Dec-20 limit is now stated as
     a consequence of coverage starting in Nov 2025.
+- 2026-10-27: Exercise 5, transfer to Ribeirão Preto (Brazil). Claude Code did the site
+  refactor (`configs/`, `zafra.site`, `--site` on scripts 00 and 12-16). It then ran the
+  pipeline on the new site with the Morelos models unchanged, and wrote
+  `results/5_brazil/transfer.md` and the doc sections.
+  - It searched ASF for the Thai candidates and found no NISAR L2 coverage in 2025-26. The
+    author chose the Brazil fallback.
+  - The author asked for a Jan–Mar 2026 radar baseline. Claude Code checked ASF and found
+    0 scenes before 2026-06-22. It kept Jun–Jul and reported the consequence (4 723
+    `no_baseline` segments) instead of silently changing the rule.
+  - A VS Code restart lost the session mid-download. It rebuilt the state from disk
+    (sizes against ASF, h5py open, flock probes), removed the unheld lock files and
+    resumed the one partial file.
+  - It added the HV-drop comparison and the in-season share to script 16, and fixed a
+    date-formatting bug found on its first run.
+  - It reported as measured, not fixed:
+    * the optical gate's low MapBiomas recall (51 % by area);
+    * an HV drop larger than in Morelos, the opposite of the expectation for a green
+      harvest;
+    * the 07-30 cadence pile-up;
+    * the 24.9 MB slim GeoJSON.
+  - Author's decisions after review:
+    * B is kept as the pure transfer result, and the radar gate A is delivered on Brazil
+      through a new per-site `gate_variant` key;
+    * a "with local labels" reference row: B re-fitted on MapBiomas with 5-fold CV by
+      3 km spatial blocks (the block size was Claude Code's choice), never delivered;
+    * `date_uncertainty_days` on every harvest GeoJSON;
+    * the HV-drop difference written as an open hypothesis;
+    * the slim-file size accepted, since the product serves vector tiles;
+    * the UNICA / CONAB / MapBiomas entries. The UNICA figure was supplied by the author
+      and not re-checked.
+
+    Claude Code implemented these and re-ran both sites. With A as the delivered gate,
+    the date confidence cross-checks against the other gate, B, instead of comparing A
+    with itself. On Morelos, `weekly.csv` and the 4e figures stay byte-identical; the
+    slim file grows from 8.2 to 8.5 MB with the two new columns.

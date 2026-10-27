@@ -44,7 +44,8 @@ import geopandas as gpd
 import pandas as pd
 
 LOCAL_TZ = "America/Mexico_City"
-# Metric CRS for distances and buffers. UTM zone 14N covers Morelos (-102 to -96 deg lon).
+# Metric CRS for distances and buffers. UTM zone 14N covers Morelos (-102 to -96 deg lon);
+# other sites pass their config's metric CRS (`crs` arguments below).
 # Lon/lat degrees are not metres (and a degree of longitude is shorter than a degree of
 # latitude), so we never buffer or measure in EPSG:4326.
 METRIC_CRS = "EPSG:32614"
@@ -89,7 +90,11 @@ def load_firms(firms_dir) -> gpd.GeoDataFrame:
 
 
 def fires_near_field(
-    fires: gpd.GeoDataFrame, field_geom, buffer_m: float = 500, field_crs="EPSG:4326"
+    fires: gpd.GeoDataFrame,
+    field_geom,
+    buffer_m: float = 500,
+    field_crs="EPSG:4326",
+    crs=METRIC_CRS,
 ) -> gpd.GeoDataFrame:
     """Fires whose pixel centre lies within `buffer_m` metres of the field polygon.
 
@@ -100,8 +105,8 @@ def fires_near_field(
     Remember the pixel itself is >= 375 m wide: even dist_edge_m = 0 does not prove the
     fire was in this field rather than in a neighbour sharing the same pixel.
     """
-    field = gpd.GeoSeries([field_geom], crs=field_crs).to_crs(METRIC_CRS).iloc[0]
-    pts = fires.to_crs(METRIC_CRS)
+    field = gpd.GeoSeries([field_geom], crs=field_crs).to_crs(crs).iloc[0]
+    pts = fires.to_crs(crs)
     near = pts[pts.within(field.buffer(buffer_m))].copy()
     near["distance_m"] = near.distance(field.centroid).round(0)
     near["dist_edge_m"] = near.distance(field).round(0)
@@ -145,19 +150,21 @@ def load_fire_table(path) -> pd.DataFrame:
     return df
 
 
-def fires_per_field_fast(fires: gpd.GeoDataFrame, fields: gpd.GeoDataFrame, buffer_m: float):
+def fires_per_field_fast(
+    fires: gpd.GeoDataFrame, fields: gpd.GeoDataFrame, buffer_m: float, crs=METRIC_CRS
+):
     """fires_per_field for many polygons: one spatial join instead of a loop over fields.
 
     Same output columns and the same distances (to the centroid and to the polygon edge, in
-    the metric CRS); only detections within `buffer_m` of a polygon are returned.
+    the metric CRS `crs`); only detections within `buffer_m` of a polygon are returned.
     """
-    pts = fires.to_crs(METRIC_CRS)
-    f = fields[["id", "geometry"]].to_crs(METRIC_CRS).reset_index(drop=True)
+    pts = fires.to_crs(crs)
+    f = fields[["id", "geometry"]].to_crs(crs).reset_index(drop=True)
     buf = f.assign(geometry=f.geometry.buffer(buffer_m))
     j = gpd.sjoin(pts, buf, predicate="within", how="inner")
     if j.empty:
         return pd.DataFrame(columns=FIELD_TABLE_COLUMNS)
-    poly = gpd.GeoSeries(f.geometry.loc[j["index_right"]].to_numpy(), index=j.index, crs=METRIC_CRS)
+    poly = gpd.GeoSeries(f.geometry.loc[j["index_right"]].to_numpy(), index=j.index, crs=crs)
     j["distance_m"] = j.geometry.distance(poly.centroid).round(0)
     j["dist_edge_m"] = j.geometry.distance(poly).round(0)
     j = j.rename(columns={"id": "field_id"})

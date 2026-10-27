@@ -1,4 +1,4 @@
-"""List and download NISAR L2 GCOV or GUNW scenes over the Zacatepec/Jojutla demo site.
+"""List and download NISAR L2 GCOV or GUNW scenes over a site (default: Morelos).
 
 Default: print a table of matching GCOV ascending scenes and exit.
     python scripts/00_download_nisar.py
@@ -8,9 +8,12 @@ Other products / passes (without --track/--frame, every track/frame covering the
 listed; if exactly one is found it is used):
     python scripts/00_download_nisar.py --product GUNW --track 19 --frame 11
     python scripts/00_download_nisar.py --direction DESCENDING
+Another site (configs/<site>.yaml; search point = AOI centre, dates = nisar.search):
+    python scripts/00_download_nisar.py --site brazil --product GCOV --track 146 --frame 167
 
-Output folder: data/nisar/<product>_<direction>_t<track>f<frame>/, except GCOV ascending
-track 19 frame 11, which stays in data/nisar/ where the earlier exercises read it.
+Output folder: the `dir` of the matching nisar.sources entry of the site config, otherwise
+<nisar.root>/<product>_<direction>_t<track>f<frame>/. For Morelos that keeps GCOV ascending
+track 19 frame 11 in data/nisar/, where the earlier exercises read it.
 For GUNW, "date" is the reference (first) acquisition of the interferometric pair; --dates
 matches it.
 
@@ -44,12 +47,9 @@ from asf_search.download.download import strip_auth_if_aws
 from tqdm import tqdm
 
 from zafra import config
-from zafra.paths import NISAR_DIR
+from zafra.site import add_site_argument, load_site
 
-POINT_WKT = "POINT(-99.184 18.581)"
-# GCOV ascending track 19 frame 11 was downloaded straight into data/nisar/ before the script
-# handled other products; keep that folder so earlier commands and exercises still work.
-LEGACY = ("GCOV", "ASCENDING", 19, 11)
+MORELOS_POINT = (-99.184, 18.581)  # the search point used before site configs (exercise 5)
 CHUNK = 1024 * 1024
 MAX_RETRIES = 5
 BACKOFF_BASE = 2  # seconds; wait 2, 4, 8, 16, 32 s before retries 1..5
@@ -57,13 +57,14 @@ BACKOFF_BASE = 2  # seconds; wait 2, 4, 8, 16, 32 s before retries 1..5
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    add_site_argument(p)
     p.add_argument("--product", choices=["GCOV", "GUNW"], default="GCOV")
     p.add_argument("--direction", choices=["ASCENDING", "DESCENDING"], default="ASCENDING")
     p.add_argument("--track", type=int, help="relative orbit; omit to search by point")
     p.add_argument("--frame", type=int, help="frame number; omit to search by point")
     p.add_argument("--out-dir", type=Path, help="default: data/nisar/<product>_<dir>_t<N>f<N>/")
-    p.add_argument("--start", default="2025-11-15", help="start date YYYY-MM-DD")
-    p.add_argument("--end", default="2026-05-21", help="end date YYYY-MM-DD (inclusive)")
+    p.add_argument("--start", help="start date YYYY-MM-DD (default: site nisar.search)")
+    p.add_argument("--end", help="end date YYYY-MM-DD, inclusive (default: site nisar.search)")
     p.add_argument("--download", action="store_true", help="download the .h5 files")
     p.add_argument("--dates", help="comma-separated acquisition dates YYYY-MM-DD to keep")
     p.add_argument("--limit", type=int, help="keep at most N scenes (earliest first)")
@@ -71,7 +72,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def search(
-    product: str, direction: str, track: int | None, frame: int | None, start: str, end: str
+    point_wkt: str,
+    product: str,
+    direction: str,
+    track: int | None,
+    frame: int | None,
+    start: str,
+    end: str,
 ) -> list[asf.ASFProduct]:
     """PROVISIONAL products intersecting the point. track/frame of None means any.
 
@@ -87,7 +94,7 @@ def search(
         processingLevel=product,
         dataMaturity="PROVISIONAL",
         flightDirection=direction,
-        intersectsWith=POINT_WKT,
+        intersectsWith=point_wkt,
         start=f"{start}T00:00:00Z",
         end=f"{end}T23:59:59Z",
         **opts,
@@ -149,10 +156,16 @@ def print_table(products: list[asf.ASFProduct]) -> None:
     print(f"\n{len(products)} scene(s), {len(groups)} track/frame, {total / 1e9:.1f} GB total")
 
 
-def default_out_dir(product: str, direction: str, track: int, frame: int) -> Path:
-    if (product, direction, track, frame) == LEGACY:
-        return NISAR_DIR
-    return NISAR_DIR / f"{product}_{direction}_t{track}f{frame}"
+def default_out_dir(site, product: str, direction: str, track: int, frame: int) -> Path:
+    for s in site.nisar.values():
+        if (s.product, s.direction, s.track, s.frame) == (product, direction, track, frame):
+            return s.dir
+    return site.nisar_root / f"{product}_{direction}_t{track}f{frame}"
+
+
+def search_point(site) -> str:
+    lon, lat = MORELOS_POINT if site.name == "morelos" else site.center
+    return f"POINT({lon} {lat})"
 
 
 class SizeMismatch(Exception):
@@ -310,10 +323,21 @@ def download(product: asf.ASFProduct, session: asf.ASFSession, out_dir: Path) ->
 
 def main() -> int:
     args = parse_args()
+    site = load_site(args.site, register=False)
+    args.start = args.start or site.nisar_search[0]
+    args.end = args.end or site.nisar_search[1]
     for d in (args.start, args.end):
         date.fromisoformat(d)
 
-    products = search(args.product, args.direction, args.track, args.frame, args.start, args.end)
+    products = search(
+        search_point(site),
+        args.product,
+        args.direction,
+        args.track,
+        args.frame,
+        args.start,
+        args.end,
+    )
     if args.dates:
         wanted = {d.strip() for d in args.dates.split(",") if d.strip()}
         for d in wanted:
@@ -336,7 +360,7 @@ def main() -> int:
     if not products:
         print("nothing to download")
         return 0
-    out_dir = args.out_dir or default_out_dir(args.product, args.direction, *groups.pop())
+    out_dir = args.out_dir or default_out_dir(site, args.product, args.direction, *groups.pop())
     out_dir.mkdir(parents=True, exist_ok=True)
 
     username, password = config.earthdata_credentials()

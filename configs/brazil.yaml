@@ -1,0 +1,70 @@
+# Site configuration (zafra.site). Ribeirao Preto, Sao Paulo: transfer test (exercise 5).
+# Fallback site: no NISAR L2 product covers any Thai cane region (or this one) between
+# 2025-11-01 and 2026-05-31; coverage here starts 2026-06-22 (results/5_brazil/transfer.md).
+name: brazil
+description: >-
+  Ribeirao Preto, Sao Paulo, Brazil (Jardinopolis / Sales Oliveira), safra 2026-27;
+  transfer test, no retraining
+aoi:
+  # 30 x 31 km centred on (-47.90, -20.90): the window inside all three NISAR frames with the
+  # highest MapBiomas 2024 sugar-cane share (72 %; WorldCover cropland 75 %)
+  bbox: [-48.04, -21.04, -47.76, -20.76]
+  epsg: 32723  # UTM 23S
+
+nisar:
+  root: data/nisar/brazil
+  search: {start: "2026-06-01", end: "2026-10-26"}
+  sources:
+    gcov_asc:
+      {product: GCOV, direction: ASCENDING, track: 146, frame: 167,
+       dir: data/nisar/brazil/GCOV_ASCENDING_t146f167}
+    gcov_desc:
+      {product: GCOV, direction: DESCENDING, track: 125, frame: 99,
+       dir: data/nisar/brazil/GCOV_DESCENDING_t125f99}
+    gunw_asc:
+      {product: GUNW, direction: ASCENDING, track: 146, frame: 167,
+       dir: data/nisar/brazil/GUNW_ASCENDING_t146f167}
+
+zafra:
+  # Centre-South harvest: Apr 1 .. Nov 30. Data end in late Oct 2026 (radar 10-22, S2
+  # 10-20, FIRMS 10-25), so November is in the window but not observed yet. Radar only
+  # exists from 2026-06-22: the first ~third of the harvest is not observed either.
+  name: "2026-27"
+  start: "2026-04-01"
+  end: "2026-12-01"  # exclusive: through Nov 30
+  # 12 months ending at the season end, as for Morelos: the rainy-season green plateau
+  # (Dec .. Mar) precedes the harvest collapse (Apr .. Nov), both inside
+  crop_year_start: "2025-12-01"
+  scene_window: ["2025-12-01", "2026-02-01"]  # rainy season, full canopy before the harvest
+  # Radar baseline / pre-harvest HV level. Standing cane would be Jan .. Mar, but NISAR has
+  # nothing here before 2026-06-22, so these are the first radar months: by then part of
+  # the cane is already cut (harvest starts in April). With [1, 2, 3] the detector baseline
+  # would fall back to the same first 3 looks and hv_pre_level_db would be NaN everywhere.
+  baseline_months: [6, 7]
+
+firms:
+  start: "2026-04-01"
+  end: "2026-10-25"
+  dir: data/firms/brazil
+
+# gate A (radar) delivered: agrees better with MapBiomas here than B,
+# which is still computed (p_cane_optical) as the pure transfer result (transfer.md)
+gate_variant: radar
+
+reference_fields: null  # no hand-traced polygons: segmentation is not scored
+
+paths:
+  s2_dir: data/s2/brazil
+  ndvi_stack: data/s2/brazil/s2_ndvi_stack.tif
+  temporal: data/s2/brazil/s2_temporal.tif
+  worldcover: data/s2/brazil/worldcover_2021.tif
+  segments: data/fields/brazil/segments.geojson
+  segmentation_results_dir: results/5_brazil
+  ts_cache: outputs/brazil/segments_ts
+  timeseries: data/features/brazil/segments_timeseries.parquet
+  coherence: data/features/brazil/segments_coherence.parquet
+  cane_features: data/features/brazil/segments_cane_features.parquet
+  harvest_geojson: data/results/brazil/harvest_dates.geojson
+  merged_geojson: data/results/brazil/harvest_dates_merged.geojson
+  slim_geojson: data/results/brazil/harvest_map_slim.geojson
+  results_dir: results/5_brazil

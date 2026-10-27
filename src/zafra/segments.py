@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-METRIC_CRS = "EPSG:32614"
+METRIC_CRS = "EPSG:32614"  # Morelos (UTM 14N); other sites pass their config's metric CRS
 MIN_HA, MAX_HA = 0.5, 60.0
 SIMPLIFY_M = 5.0
 WORLDCOVER_DROP = {50: "built-up", 80: "permanent water"}
@@ -219,16 +219,17 @@ def clean_segments(
     max_ha: float = MAX_HA,
     simplify_m: float = SIMPLIFY_M,
     worldcover_tif=None,
+    crs=METRIC_CRS,
 ) -> tuple:
     """Fix, simplify, filter by area and land cover. Returns (clean gdf, counts dict).
 
     Order: make valid -> simplify (topology-preserving, `simplify_m`) -> make valid again
     (simplifying can create self-intersections) -> keep min_ha <= area <= max_ha -> drop
     polygons whose WorldCover majority class is built-up (50) or water (80), if a WorldCover
-    raster is given. Areas in hectares in the metric CRS. Adds area_ha (and wc_class).
+    raster is given. Areas in hectares in the metric CRS `crs`. Adds area_ha (and wc_class).
     """
     counts = {"raw": len(gdf)}
-    g = fix_geometries(gdf.to_crs(METRIC_CRS))
+    g = fix_geometries(gdf.to_crs(crs))
     g["geometry"] = g.geometry.simplify(simplify_m, preserve_topology=True)
     g = fix_geometries(g)
     counts["after_fix"] = len(g)
@@ -248,7 +249,7 @@ def clean_segments(
 # --- evaluation against hand-traced polygons -------------------------------------------------
 
 
-def match_fields(ref, seg, ref_id: str = "id") -> pd.DataFrame:
+def match_fields(ref, seg, ref_id: str = "id", crs=METRIC_CRS) -> pd.DataFrame:
     """For every reference polygon: the segment with the largest intersection and its IoU,
     plus over- and under-segmentation flags.
 
@@ -256,8 +257,8 @@ def match_fields(ref, seg, ref_id: str = "id") -> pd.DataFrame:
     under_segmented: the best segment is > UNDER_RATIO x the field's area.
     A field no segment touches gets IoU 0 and best_segment None ("missed").
     """
-    ref = ref.to_crs(METRIC_CRS).reset_index(drop=True)
-    seg = seg.to_crs(METRIC_CRS).reset_index(drop=True)
+    ref = ref.to_crs(crs).reset_index(drop=True)
+    seg = seg.to_crs(crs).reset_index(drop=True)
     sidx = seg.sindex
     rows = []
     for _, r in ref.iterrows():

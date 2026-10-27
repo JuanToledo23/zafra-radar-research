@@ -184,3 +184,81 @@ confirm against the provider pages.
   Morelos is recorded here yet. Exercise 4d's area-wide gate gives 9 943 ha of cane-like
   segments in the FIRMS bbox for 2025/26 (`docs/VALIDATION.md`). Add the CONADESUCA
   harvested-area figure for zafra 2025/26 (report title and week) to compare.
+
+---
+
+## Second site (exercise 5): Thailand candidates and the Ribeirão Preto fallback
+
+Site settings live in `configs/<site>.yaml` (`zafra.site`); the data below is fetched with
+`--site brazil` by scripts 00 and 12.
+
+### NISAR over Thailand: no coverage for the 2025/26 crushing season
+
+- **Searched (2026-10-26):** `asf_search` dataset `NISAR`, processingLevel GCOV and GUNW,
+  `dataMaturity` PROVISIONAL (and without the maturity filter), 2025-11-01 .. 2026-05-31,
+  intersecting Khon Kaen / Udon Thani, Kanchanaburi / Suphan Buri and Nakhon Sawan /
+  Kamphaeng Phet. **Zero products** for each, and zero over all of Thailand.
+- Thai coverage starts 2026-06-19 (standard observation series), 8-11 acquisitions per frame
+  through 2026-10-19, ascending and descending, for all three regions. That is the
+  growing season; the 2026/27 crushing season (Dec .. Apr) is not acquired yet. Table:
+  `results/5_brazil/transfer.md`.
+- **Thai cane statistics:** not needed. Thailand was not run, for lack of NISAR coverage
+  in 2025/26.
+
+### NISAR L2 GCOV / GUNW, Ribeirão Preto (Brazil)
+
+- **Frames:** GCOV ascending track 146 frame 167 (10 scenes, 2026-06-24 .. 2026-10-22,
+  ~08:59 UTC), GCOV descending track 125 frame 99 (8 scenes, 2026-06-22 .. 2026-10-20,
+  ~21:23 UTC), GUNW ascending track 146 frame 167 (8 pairs, 7 at 12 days, 1 at 24 days).
+  Same 40+5 MHz HH+HV mode and CRID P05023 as Morelos; the ascending grid is UTM 23S
+  (EPSG:32723). 142.7 GB in total.
+- **Gaps:** ascending 2026-07-30 and descending 2026-07-28 / 2026-08-09 fall in the permanent
+  2026-07-27 .. 08-10 gap; descending also lacks 2026-09-14.
+- **Access:** `scripts/00_download_nisar.py --site brazil --product <GCOV|GUNW> --direction
+  <dir> --track <t> --frame <f> --download`, into `data/nisar/brazil/<product>_<dir>_t<t>f<f>/`.
+- **Caveat:** nothing before 2026-06-22, i.e. the first ~third of the Centre-South harvest
+  (April .. June) is never observed by radar.
+
+### FIRMS VIIRS, Ribeirão Preto
+
+- `scripts/00_download_firms.py --site brazil`: bbox lon −48.04 .. −47.76, lat −21.04 ..
+  −20.76, 2026-04-01 .. 2026-10-25, SNPP / NOAA-20 / NOAA-21 (SP to 2026-06-30, NRT after),
+  into `data/firms/brazil/`. 17 detections in seven months: São Paulo state phased out
+  pre-harvest burning (state law 11.241/2002 and the 2007 agro-environmental protocol), so
+  fire is not a harvest marker here.
+
+### Sentinel-2 L2A and WorldCover, Ribeirão Preto
+
+- `scripts/12_s2_images.py --site brazil`, same products and processing as Morelos, on a
+  10 m UTM 23S grid: clearest scene of 2025-12-01 .. 2026-01-31, the temporal composite and
+  per-date NDVI stack over the crop year 2025-12-01 .. 2026-11-30 (data to 2026-10-20),
+  WorldCover 2021. Files
+  in `data/s2/brazil/` (git-ignored).
+
+### MapBiomas Brazil, Collection 10 (land use, 2024)
+
+- **What:** annual 30 m land-use / land-cover map of Brazil from Landsat, with an explicit
+  **sugar cane** class (20). https://brasil.mapbiomas.org. The 2024 raster used here is
+  from **Collection 10**. Earth Engine asset
+  `projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v2`,
+  band `classification_2024`.
+- **Use in this project:** exercise 5 only. Choosing the AOI (the 30 km window inside the
+  three NISAR frames with the highest cane share), and an independent check of the cane gate
+  (`scripts/16_transfer_validation.py`, majority class per segment, resampled to the 10 m
+  S2 grid). Also the labels of the "with local labels" row of the gate table, where gate B
+  is re-fitted with spatial-block CV, as a reference only. MapBiomas is never an input to
+  a delivered model.
+- **Licence / citation:** CC BY 4.0. MapBiomas Project, Collection 10 of the Annual Series
+  of Land Use and Land Cover Maps of Brazil, accessed 2026-10-26 via Earth Engine.
+- **Caveats:** 2024, one safra before the test season; 30 m pixels on 10 m segments;
+  cane renewal areas (replanted each year) may be mapped as other temporary crops.
+
+### UNICA and CONAB (Brazil cane statistics)
+
+- **UNICA** (https://www.unicadata.com.br) publishes the fortnightly Centre-South crushing
+  reports. For the 2025/26 safra, cumulative Centre-South cane crush to 1 Oct 2025 was
+  **490.93 Mt**. Use: the context for the harvest calendar (April .. November) and its
+  progress. Not compared with the segment counts: they are a different season (2026/27),
+  and a regional total is not a 30 km window.
+- **CONAB** (https://www.conab.gov.br) publishes the safra surveys of cane area and
+  production per state. Listed as a reference only; no figures are used here.

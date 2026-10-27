@@ -476,13 +476,24 @@ within 200 m of any gated cane segment (the same buffer as the per-field fire fe
 **Frontend export.** `data/results/harvest_map_2025_26_slim.geojson` contains:
 * the gated cane polygons of the delivered layer, every status;
 * 5 m topology-preserving simplification, coordinates rounded to 1e-6°;
-* columns segment_id, area_ha, p_cane, p_cane_radar, harvest_date, status, confidence,
-  hv_drop_db, coh_min, wc_disagrees.
+* columns segment_id, area_ha, p_cane, p_cane_radar, p_cane_optical, harvest_date,
+  date_uncertainty_days, status, confidence, hv_drop_db, coh_min, wc_disagrees.
 
-It is 8.2 MB. Non-cane segments are left out: with them the file is 36-61 MB even at 10 m
+`date_uncertainty_days` is half the gap between the last standing and the first harvested
+acquisition. `harvest_date` is the midpoint of that gap, so the date is ± that many days.
+`p_cane_optical` (gate B) and `p_cane_radar` (gate A) are both kept whichever gate a site
+delivers (`gate_variant` in `configs/<site>.yaml`).
+
+It is 8.5 MB (8.2 MB in 4e, before the two new columns). Non-cane segments are left out: with them the file is 36-61 MB even at 10 m
 tolerance (the outlines are 10 m pixel staircases). The weekly series for the dashboard
 chart is `results/4e/weekly.csv`, with columns harvests, harvest_ha, fires_all, fires_cane
 and the 4d counts for reference.
+
+**Serving.** The static slim file is a hand-off format, not how the product serves the map.
+The product serves vector tiles from PostGIS (`ST_AsMVT` over the per-segment table), so
+file size does not limit the layer. On Brazil the slim file is 41.8 MB, with 21 171 cane
+polygons under the delivered radar gate (24.9 MB and 12 210 polygons with gate B). The
+file is not thinned further.
 
 ### Limitations of the area-wide run
 
@@ -498,6 +509,85 @@ and the 4d counts for reference.
 * The radar detector is field-relative and cannot see cuts made before its first look
   (Nov 18): such fields read as standing and end as `not_detected`.
 * VIIRS sees a fire near only ~9 % of the dated segments: fire is a zone-level check.
+
+## Site configuration (exercise 5)
+
+Code: `src/zafra/site.py`, `configs/morelos.yaml`, `configs/brazil.yaml`; scripts 00, 12-16
+take `--site <name>` (default `morelos`). Tests: `tests/test_site.py`. Results of the
+second site: `results/5_brazil/`.
+
+**What a site holds.** Everything that was hard-coded for Morelos before exercise 5:
+* AOI bbox (also the FIRMS bbox) and the metric CRS, a UTM zone. The S2 grid, buffers,
+  areas and maps are in that CRS.
+* The three NISAR sources (GCOV asc, GCOV desc, GUNW asc: track, frame, folder) and the
+  download search window.
+* The zafra: name, window (start, end exclusive), crop-year start, full-canopy scene window,
+  and the months of the radar baseline.
+* FIRMS dates and folder.
+* Reference polygons to score the segmentation (or `null`).
+* Every input and output path of scripts 12-15.
+
+Morelos-only diagnostics of script 14's summary (the December and April windows of 4e) are
+optional `check_windows`.
+
+**What is not part of a site.** The models. The cane gate is always fitted on the 38
+Morelos `fields_v2` polygons of 2025-26. The harvest detector is always the script-10 model
+on the 26 Morelos cane fields. Their thresholds, the Felzenszwalb parameters and the
+cleaning rules are unchanged across sites.
+
+**Season-dependent rules, now read from the zafra.** Four rules assumed the Mexican
+Nov-May zafra. Each is now written so that it gives the old value on Morelos and follows
+the site's season elsewhere:
+
+| rule | Morelos (before) | now |
+|---|---|---|
+| radar baseline (`features.season_baseline`) | first 3 looks in Nov-Dec | first 3 looks in `baseline_months` (fallback: first 3 overall, unchanged) |
+| pre-harvest HV level (`cane_features.radar_summary`) | median HV in Nov-Dec | median HV in the zafra's `baseline_months` |
+| crop year for NDVI phenology | Jun 1 .. end of zafra | `crop_year_start` .. end of zafra (12 months ending at the season end for both sites) |
+| gate input `collapse_in_zafra` | main NDVI collapse in Nov-May | collapse inside the zafra window (identical for every day of the Morelos crop year; tested) |
+
+The values for the two sites:
+
+| | Morelos 2025-26 | Brazil 2026-27 |
+|---|---|---|
+| zafra window | 2025-11-01 .. 2026-06-01 (exclusive) | 2026-04-01 .. 2026-12-01 (exclusive) |
+| crop year | 2025-06-01 .. 2026-06-01 | 2025-12-01 .. 2026-12-01 |
+| `baseline_months` | 11, 12 | 6, 7 (see below) |
+| full-canopy scene window | 2025-12-01 .. 2026-02-01 | 2025-12-01 .. 2026-02-01 |
+
+On Brazil the baseline should be Jan–Mar, when the cane is still standing. NISAR has no
+acquisition there before 2026-06-22, so the baseline is the first radar months. By then
+the harvest has run since April, and fields cut before or during Jun–Jul get
+`no_baseline` (`results/5_brazil/transfer.md`).
+
+Zafras are registered in `cane_features.ZAFRAS` from the config (`register_zafra`). A
+second registration of a known name with a different window is an error.
+
+**CRS.** Library functions that buffered or measured in EPSG:32614 now take a `crs`
+argument with that default (`segments.clean_segments`, `match_fields`,
+`fires.fires_per_field_fast`, `fires_near_field`, `plots.harvest_map`,
+`zonal.radar_timeseries`, `optical.aoi_grid`). `zonal` also reprojects the polygons to a
+product's grid CRS when it differs from the site's. Two orbits over a UTM-zone boundary
+can have different grids, and before, that raised an error.
+
+**Byte-identity check.** After the refactor, `scripts/14_area_harvest_map.py` and
+`scripts/15_merge_fragments.py` on Morelos reproduce, byte for byte:
+* `results/4e/weekly.csv`;
+* the slim GeoJSON (attributes and geometry);
+* the full per-segment GeoJSON;
+* both 4e figures.
+
+`area_summary.json` differs only in runtimes and, when the check is run, in
+`check_vs_fields_v2` (38/38 gate decisions, as in 4d). `tests/test_site.py` freezes the
+SHA-256 of `weekly.csv`. Where the Morelos data are on disk, it also rebuilds the weekly
+harvest and fire columns from the delivered GeoJSON with only the config's season, bbox
+and CRS.
+
+**Adding a site.**
+1. Copy a config, then set the AOI, UTM EPSG, frames, season and paths. Paths must not
+   collide with another site's (tested for the two configs here).
+2. Run `00_download_nisar.py` and `00_download_firms.py`, then scripts 12-15, then
+   `16_transfer_validation.py`, all with `--site <name>`.
 
 ## References
 

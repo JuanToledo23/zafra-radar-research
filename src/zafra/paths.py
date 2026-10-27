@@ -13,6 +13,7 @@ LABELS_DIR = DATA_DIR / "labels"
 FIRES_DIR = DATA_DIR / "fires"  # derived per-field fire tables (raw FIRMS CSVs: FIRMS_DIR)
 FEATURES_DIR = DATA_DIR / "features"
 RESULTS_DIR = ROOT / "results"
+CONFIGS_DIR = ROOT / "configs"  # site configurations (zafra.site)
 OUTPUTS_DIR = ROOT / "outputs"
 
 for _d in (

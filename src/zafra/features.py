@@ -73,12 +73,15 @@ FEATURE_TABLE_COLUMNS = [
 # --- pure helpers (unit-tested) -----------------------------------------------------------
 
 
-def season_baseline(dates: pd.Series, values: pd.Series, n: int = BASELINE_N) -> float:
-    """Median of the first `n` non-NaN values dated in Nov-Dec (fallback: first `n` overall)."""
+def season_baseline(
+    dates: pd.Series, values: pd.Series, n: int = BASELINE_N, months=BASELINE_MONTHS
+) -> float:
+    """Median of the first `n` non-NaN values dated in `months` (default Nov-Dec; a site's
+    zafra.baseline_months), fallback: first `n` overall."""
     dates, values = pd.to_datetime(pd.Series(dates)).reset_index(drop=True), pd.Series(values)
     values = values.reset_index(drop=True)
     ok = values.notna()
-    early = ok & dates.dt.month.isin(BASELINE_MONTHS)
+    early = ok & dates.dt.month.isin(months)
     pick = values[early] if early.sum() >= n else values[ok]
     return float(pick.iloc[:n].median()) if len(pick) else np.nan
 
@@ -94,7 +97,7 @@ def trailing_slope(t_days: np.ndarray, y: np.ndarray, k: int = SLOPE_N) -> np.nd
     return out
 
 
-def hv_dynamics(dates, hv_db) -> pd.DataFrame:
+def hv_dynamics(dates, hv_db, baseline_months=BASELINE_MONTHS) -> pd.DataFrame:
     """Baseline/step/trend/sharpness features for one field and orbit, sorted by date."""
     dates = pd.to_datetime(pd.Series(dates)).reset_index(drop=True)
     hv = pd.Series(hv_db, dtype="float64").reset_index(drop=True)
@@ -104,7 +107,8 @@ def hv_dynamics(dates, hv_db) -> pd.DataFrame:
     slope = trailing_slope(t, hv.to_numpy())
     return pd.DataFrame(
         {
-            "delta_hv_vs_baseline": hv.to_numpy() - season_baseline(dates, hv),
+            "delta_hv_vs_baseline": hv.to_numpy()
+            - season_baseline(dates, hv, months=baseline_months),
             "delta_hv_vs_prev": prev,
             "slope_hv_3": slope,
             "sharpness": prev - slope * gap,
@@ -226,12 +230,14 @@ def assemble(
     acq: pd.DataFrame,
     fire_table: pd.DataFrame,
     rain: pd.DataFrame | None,
+    baseline_months=BASELINE_MONTHS,
 ) -> pd.DataFrame:
     """Join the per-source tables into FEATURE_TABLE_COLUMNS (one row per field/date/orbit).
 
     gcov_frames: multisignal.extract_gcov_series outputs (HVHV_db, HHHH_db, ratio_db, ...).
     coh: multisignal.extract_coherence_series output (ascending pairs).
     enl: enl_table outputs; acq: acquisition_times outputs; fire_table: fires.fires_per_field.
+    baseline_months: months of the HV and coherence baselines (site zafra.baseline_months).
     """
     g = pd.concat(gcov_frames, ignore_index=True)
     g = g.rename(
@@ -248,7 +254,7 @@ def assemble(
     parts = []
     for _, d in g.groupby(["field_id", "orbit"], sort=True):
         d = d.sort_values("date").reset_index(drop=True)
-        d = pd.concat([d, hv_dynamics(d["date"], d["hv_db"])], axis=1)
+        d = pd.concat([d, hv_dynamics(d["date"], d["hv_db"], baseline_months)], axis=1)
         parts.append(d)
     g = pd.concat(parts, ignore_index=True)
 
@@ -257,7 +263,9 @@ def assemble(
     )
     base = {
         fid: season_baseline(
-            d.sort_values("sec_date")["sec_date"], d.sort_values("sec_date")["coherence_mean"]
+            d.sort_values("sec_date")["sec_date"],
+            d.sort_values("sec_date")["coherence_mean"],
+            months=baseline_months,
         )
         for fid, d in c.groupby("field_id")
     }

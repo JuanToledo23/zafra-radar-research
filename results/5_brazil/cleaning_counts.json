@@ -1,0 +1,10 @@
+{
+  "classic": {
+    "raw": 44243,
+    "after_fix": 44243,
+    "too_small": 10828,
+    "too_large": 3,
+    "worldcover_dropped": 1135,
+    "kept": 32277
+  }
+}

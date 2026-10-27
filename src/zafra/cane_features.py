@@ -35,6 +35,10 @@ ZAFRAS = {  # end exclusive
     "2024-25": ("2024-11-01", "2025-06-01"),
     "2025-26": ("2025-11-01", "2026-06-01"),
 }
+# Per-zafra overrides set by register_zafra (site configs, zafra.site). A zafra not listed
+# here uses the Morelos rules: crop year from Jun 1, pre-harvest radar level in PRE_MONTHS.
+CROP_YEAR_START: dict[str, str] = {}
+ZAFRA_PRE_MONTHS: dict[str, tuple[int, ...]] = {}
 HIGH = 0.6  # closed green canopy (script 07)
 LOW = 0.35  # bare soil / stubble / ash (script 07)
 COLLAPSE_DROP = 0.3  # NDVI drop that counts as a collapse ...
@@ -84,6 +88,21 @@ TABLE_COLUMNS = [
 ]
 
 
+def register_zafra(name: str, start, end, crop_year_start=None, pre_months=None) -> None:
+    """Add (or confirm) a zafra: window (end exclusive), crop-year start, and the months of
+    the pre-harvest radar level. Called by zafra.site.Site.register for each site config;
+    re-registering a known zafra with a different window is an error."""
+    name = name.replace("/", "-")
+    win = (f"{pd.Timestamp(start):%Y-%m-%d}", f"{pd.Timestamp(end):%Y-%m-%d}")
+    if name in ZAFRAS and tuple(ZAFRAS[name]) != win:
+        raise ValueError(f"zafra {name} already registered as {ZAFRAS[name]}, not {win}")
+    ZAFRAS[name] = win
+    if crop_year_start is not None:
+        CROP_YEAR_START[name] = f"{pd.Timestamp(crop_year_start):%Y-%m-%d}"
+    if pre_months is not None:
+        ZAFRA_PRE_MONTHS[name] = tuple(int(m) for m in pre_months)
+
+
 def zafra_bounds(zafra: str) -> tuple[pd.Timestamp, pd.Timestamp]:
     """(start, end exclusive) of a zafra; accepts '2025-26' or '2025/26'."""
     a, b = ZAFRAS[zafra.replace("/", "-")]
@@ -91,21 +110,38 @@ def zafra_bounds(zafra: str) -> tuple[pd.Timestamp, pd.Timestamp]:
 
 
 def crop_year_bounds(zafra: str) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """Jun 1 before the zafra .. end of the zafra (end exclusive)."""
+    """Crop-year start (registered, default Jun 1 before the zafra) .. end of the zafra."""
     a, b = zafra_bounds(zafra)
-    return pd.Timestamp(year=a.year, month=6, day=1), b
+    start = CROP_YEAR_START.get(zafra.replace("/", "-"))
+    return (pd.Timestamp(start) if start else pd.Timestamp(year=a.year, month=6, day=1)), b
+
+
+def pre_months(zafra: str) -> tuple[int, ...]:
+    """Months of the pre-harvest radar level (hv_pre_level_db) for a zafra."""
+    return ZAFRA_PRE_MONTHS.get(zafra.replace("/", "-"), PRE_MONTHS)
+
+
+def collapse_in_zafra(collapse_date, zafra: str) -> float:
+    """1 if the main NDVI collapse falls inside the zafra window, 0 if elsewhere in the crop
+    year, NaN if none. For Morelos (crop year Jun-May, zafra Nov-May) this equals the
+    cane gate's month rule (Nov-May)."""
+    if pd.isna(collapse_date):
+        return np.nan
+    a, b = zafra_bounds(zafra)
+    return float(a <= pd.Timestamp(collapse_date) < b)
 
 
 # --- radar (pure) -------------------------------------------------------------------------
 
 
-def radar_summary(acq: pd.DataFrame, coh: pd.DataFrame) -> dict:
+def radar_summary(acq: pd.DataFrame, coh: pd.DataFrame, pre: tuple = PRE_MONTHS) -> dict:
     """Zafra summary of one field's radar series.
 
     acq: rows of one field inside the zafra with date, orbit, hv_db, hh_db, cross_ratio_db,
          enl (the exercise-4b feature table layout).
     coh: that field's coherence pairs inside the zafra with sec_date, coh_mean (field mean;
          the per-pixel minimum is noise, see multisignal.COH_COLUMNS).
+    pre: months of the pre-harvest HV level (cane standing everywhere).
     """
     out = dict.fromkeys(RADAR_COLUMNS, np.nan) | {
         "has_radar": False,
@@ -121,7 +157,7 @@ def radar_summary(acq: pd.DataFrame, coh: pd.DataFrame) -> dict:
     for _, d in acq.groupby("orbit", sort=True):
         d = d.sort_values("date")
         hv = d["hv_db"].to_numpy()
-        pre = d.loc[d["date"].dt.month.isin(PRE_MONTHS), "hv_db"]
+        lvl = d.loc[d["date"].dt.month.isin(pre), "hv_db"]
         per.append(
             {
                 "hv_range_db": np.nanmax(hv) - np.nanmin(hv),
@@ -129,7 +165,7 @@ def radar_summary(acq: pd.DataFrame, coh: pd.DataFrame) -> dict:
                 "hh_std_db": d["hh_db"].std(),
                 "cross_ratio_mean_db": d["cross_ratio_db"].mean(),
                 "cross_ratio_std_db": d["cross_ratio_db"].std(),
-                "hv_pre_level_db": pre.median() if len(pre) else np.nan,
+                "hv_pre_level_db": lvl.median() if len(lvl) else np.nan,
             }
         )
         steps = np.diff(hv)
@@ -295,6 +331,7 @@ def build_table(
             r = radar_summary(
                 fa[(fa["date"] >= a) & (fa["date"] < b)],
                 fc[(fc["sec_date"] >= a) & (fc["sec_date"] < b)],
+                pre_months(z),
             )
             o = (
                 optical_summary(fn, z)

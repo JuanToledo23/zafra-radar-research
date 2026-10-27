@@ -62,16 +62,26 @@ def _aoi_window(grid: dict, bounds):
 # --- GCOV ---------------------------------------------------------------------------------
 
 
+def _on_grid(gdf_metric, bounds, epsg: int):
+    """Polygons and AOI bounds in the product grid's CRS. A frame whose grid is in another
+    UTM zone than the site's metric CRS (two orbits over a zone boundary) gets the polygons
+    reprojected; on the site's own grid they are used as they are."""
+    if gdf_metric.crs.to_epsg() == epsg:
+        return gdf_metric, bounds
+    g = gdf_metric.to_crs(epsg)
+    minx, miny, maxx, maxy = g.total_bounds
+    return g, (minx - 50, miny - 50, maxx + 50, maxy + 50)
+
+
 def gcov_scene_stats(path, gdf_metric, ids, bounds) -> pd.DataFrame:
     """One row per polygon for one GCOV scene: HVHV_db, HHHH_db, ratio_db, valid_px,
-    mean_looks, inside_px, enl. `gdf_metric` must be in the grid CRS (EPSG:32614)."""
+    mean_looks, inside_px, enl. `gdf_metric` is reprojected to the grid CRS if needed."""
     from zafra import gcov
 
     with gcov.open_gcov(path) as f:
         ident = gcov.read_identification(f)
         grid = gcov.read_grid(f, "A")
-        if gdf_metric.crs.to_epsg() != grid["epsg"]:
-            raise ValueError(f"{path}: grid EPSG {grid['epsg']} != polygons CRS")
+        gdf_metric, bounds = _on_grid(gdf_metric, bounds, grid["epsg"])
         rows, cols, tr = _aoi_window(grid, bounds)
         shape = (rows.stop - rows.start, cols.stop - cols.start)
         lab = rasterize_ids(gdf_metric.geometry, tr, shape)
@@ -120,8 +130,7 @@ def gunw_pair_stats(path, gdf_metric, ids, bounds) -> pd.DataFrame:
         ref = gcov._decode(ident["referenceZeroDopplerStartTime"][()])[:10]
         sec = gcov._decode(ident["secondaryZeroDopplerStartTime"][()])[:10]
         grid = ms.read_gunw_grid(f)
-        if gdf_metric.crs.to_epsg() != grid["epsg"]:
-            raise ValueError(f"{path}: grid EPSG {grid['epsg']} != polygons CRS")
+        gdf_metric, bounds = _on_grid(gdf_metric, bounds, grid["epsg"])
         rows, cols, tr = _aoi_window(grid, bounds)
         shape = (rows.stop - rows.start, cols.stop - cols.start)
         lab = rasterize_ids(gdf_metric.geometry, tr, shape)
@@ -143,13 +152,16 @@ def gunw_pair_stats(path, gdf_metric, ids, bounds) -> pd.DataFrame:
     )
 
 
-def radar_timeseries(gdf, asc_dir, desc_dir, gunw_dir, cache_dir, id_col="id", log=print):
+def radar_timeseries(
+    gdf, asc_dir, desc_dir, gunw_dir, cache_dir, id_col="id", log=print, crs="EPSG:32614"
+):
     """(gcov, coherence) tables for every polygon of `gdf`, one pass per scene.
 
     gcov: field_id, orbit, date, HVHV_db, HHHH_db, ratio_db, valid_px, mean_looks, enl,
     inside_px. coherence: field_id, ref_date, sec_date, coh_mean, coh_min, valid_px.
     Each scene's result is cached in `cache_dir` (parquet named after the granule), keyed
     by a hash of the polygons, so an interrupted run resumes and a changed set rebuilds.
+    `crs` is the site's metric CRS (default Morelos UTM 14N); each product's grid may differ.
     """
     import hashlib
     import time
@@ -158,7 +170,7 @@ def radar_timeseries(gdf, asc_dir, desc_dir, gunw_dir, cache_dir, id_col="id", l
     from zafra import multisignal as ms
     from zafra import timeseries as ts
 
-    g = gdf.to_crs("EPSG:32614")
+    g = gdf.to_crs(crs)
     ids = g[id_col].to_numpy()
     key = hashlib.sha1(
         b"".join(g.geometry.to_wkb()) + "|".join(map(str, ids)).encode()

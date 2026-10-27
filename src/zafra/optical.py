@@ -255,7 +255,7 @@ def rgb_thumb_url(image_id: str, field_geom, pad_m: float = 250, size: int = 400
 
 # --- area-wide images for field segmentation (exercise 4d) ----------------------------------
 
-UTM_EPSG = 32614
+UTM_EPSG = 32614  # Morelos (UTM 14N); other sites pass their config's epsg
 WORLDCOVER = "ESA/WorldCover/v200"
 # getDownloadURL refuses requests above ~48 MB; 1000 x 1000 px x 5 float32 bands is 20 MB.
 TILE_PX = 1000
@@ -265,8 +265,8 @@ STACK_MASKED = -20000  # covered by the scene, but SCL says cloud / shadow / cir
 STACK_NODATA = -32768  # not covered by any granule of that date
 
 
-def aoi_grid(bbox_lonlat, scale: float = 10.0) -> dict:
-    """The UTM 14N pixel grid (EPSG:32614) covering a lon/lat bbox, snapped to `scale` m.
+def aoi_grid(bbox_lonlat, scale: float = 10.0, epsg: int = UTM_EPSG) -> dict:
+    """The pixel grid in `epsg` (default UTM 14N) covering a lon/lat bbox, snapped to `scale` m.
 
     Every export uses this grid (crs_transform + dimensions), so tiles and products line up
     pixel for pixel. Returns epsg, transform (affine tuple), width, height.
@@ -274,14 +274,14 @@ def aoi_grid(bbox_lonlat, scale: float = 10.0) -> dict:
     from pyproj import Transformer
 
     lon0, lat0, lon1, lat1 = bbox_lonlat
-    tr = Transformer.from_crs(4326, UTM_EPSG, always_xy=True)
+    tr = Transformer.from_crs(4326, epsg, always_xy=True)
     xs, ys = tr.transform([lon0, lon0, lon1, lon1], [lat0, lat1, lat0, lat1])
     x0 = np.floor(min(xs) / scale) * scale
     y1 = np.ceil(max(ys) / scale) * scale
     w = int(np.ceil((max(xs) - x0) / scale))
     h = int(np.ceil((y1 - min(ys)) / scale))
     return {
-        "epsg": UTM_EPSG,
+        "epsg": epsg,
         "transform": (scale, 0.0, x0, 0.0, -scale, y1),
         "width": w,
         "height": h,

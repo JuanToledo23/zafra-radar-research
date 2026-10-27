@@ -150,6 +150,7 @@ def test_classify_fields_schema_default_is_optical():
     for col in ("p_cane", "cane_pred", "confidence", "gate_variant", "p_cane_radar"):
         assert col in out
     assert (out["gate_variant"] == "B").all()
+    assert np.allclose(out["p_cane"], out["p_cane_optical"], equal_nan=True)
     assert out.loc[0, "p_cane"] > 0.5 and bool(out.loc[0, "cane_pred"])
     assert out.loc[1, "p_cane"] < 0.5 and not bool(out.loc[1, "cane_pred"])
     # Field c has optical data but no radar: the gate answers, the radar evidence does not.
@@ -164,6 +165,8 @@ def test_classify_fields_radar_variant():
     assert (out["gate_variant"] == "A").all()
     assert np.allclose(out["p_cane"], out["p_cane_radar"], equal_nan=True)
     assert np.isnan(out.loc[2, "p_cane"]) and out.loc[2, "confidence"] == "no_data"
+    # the optical gate is still returned alongside, and answers where the radar does not
+    assert not np.isnan(out.loc[2, "p_cane_optical"])
     with pytest.raises(ValueError):
         G.classify_fields(gdf, "2025-26", "sonar", features=feats, train=train)
 

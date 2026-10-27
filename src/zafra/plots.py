@@ -56,8 +56,10 @@ def harvest_map(
     title=None,
     ax=None,
     flag_col="wc_disagrees",
+    crs="EPSG:32614",
 ):
     """Segments coloured by harvest date; non-cane grey; cane without a date hatched.
+    Drawn in the metric CRS `crs` (default Morelos UTM 14N; a site's metric_crs).
 
     If `flag_col` is present, cane segments where it is true get a dark outline (e.g. the
     gate says cane but WorldCover says trees or grassland); segments with confidence
@@ -69,7 +71,7 @@ def harvest_map(
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
 
-    g = gdf.to_crs("EPSG:32614").copy()
+    g = gdf.to_crs(crs).copy()
     g[date_col] = pd.to_datetime(g[date_col])
     cane = g[cane_col].fillna(False).astype(bool)
     dated = cane & g[date_col].notna()

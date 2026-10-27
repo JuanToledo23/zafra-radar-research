@@ -1,8 +1,9 @@
-"""Download VIIRS 375 m active-fire detections (FIRMS area API) for the demo bounding box.
+"""Download VIIRS 375 m active-fire detections (FIRMS area API) for a site's bounding box.
 
-    python scripts/00_download_firms.py [--start 2024-11-01] [--end 2026-05-31]
+    python scripts/00_download_firms.py [--site morelos] [--start 2024-11-01] [--end 2026-05-31]
 
-Writes one combined CSV per satellite to data/firms/: SNPP, NOAA-20, NOAA-21.
+Writes one combined CSV per satellite to the site's firms.dir (Morelos: data/firms/): SNPP,
+NOAA-20, NOAA-21. bbox and default dates come from configs/<site>.yaml (firms).
 
 API format checked against https://firms.modaps.eosdis.nasa.gov/api/area/ (2026-10-23):
     /api/area/csv/[MAP_KEY]/[SOURCE]/[west,south,east,north]/[DAY_RANGE]/[DATE]
@@ -22,18 +23,18 @@ import requests
 from tqdm import tqdm
 
 from zafra import config
-from zafra.paths import FIRMS_DIR
+from zafra.site import add_site_argument, load_site
 
 BASE = "https://firms.modaps.eosdis.nasa.gov/api"
-BBOX = (-99.35, 18.50, -99.05, 18.75)  # west, south, east, north
 MAX_DAYS = 5
 SATELLITES = {"snpp": "VIIRS_SNPP", "noaa20": "VIIRS_NOAA20", "noaa21": "VIIRS_NOAA21"}
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--start", default="2024-11-01", type=date.fromisoformat)
-    p.add_argument("--end", default="2026-05-31", type=date.fromisoformat)
+    add_site_argument(p)
+    p.add_argument("--start", type=date.fromisoformat, help="default: site firms.start")
+    p.add_argument("--end", type=date.fromisoformat, help="default: site firms.end")
     return p.parse_args()
 
 
@@ -84,7 +85,9 @@ def plan_chunks(start: date, end: date, sp: tuple | None, nrt: tuple | None):
         d += timedelta(n)
 
 
-def fetch_satellite(key: str, name: str, prefix: str, start: date, end: date) -> pd.DataFrame:
+def fetch_satellite(
+    key: str, name: str, prefix: str, start: date, end: date, bbox: tuple
+) -> pd.DataFrame:
     sp = availability(key, f"{prefix}_SP")
     nrt = availability(key, f"{prefix}_NRT")
     print(f"{name}: SP {sp or 'unavailable'}, NRT {nrt or 'unavailable'}")
@@ -94,7 +97,7 @@ def fetch_satellite(key: str, name: str, prefix: str, start: date, end: date) ->
     if covered < total:
         print(f"  note: {total - covered} day(s) in range not covered by SP or NRT")
 
-    bbox = ",".join(str(v) for v in BBOX)
+    bbox = ",".join(str(v) for v in bbox)  # west, south, east, north
     frames = []
     for suffix, d, n in tqdm(chunks, desc=name, unit="req"):
         source = f"{prefix}_{suffix}"
@@ -109,13 +112,17 @@ def fetch_satellite(key: str, name: str, prefix: str, start: date, end: date) ->
 
 def main() -> int:
     args = parse_args()
+    site = load_site(args.site, register=False)
+    args.start = args.start or date.fromisoformat(site.firms_dates[0])
+    args.end = args.end or date.fromisoformat(site.firms_dates[1])
+    site.firms_dir.mkdir(parents=True, exist_ok=True)
     if args.end < args.start:
         sys.exit("--end must be on or after --start")
     key = config.firms_map_key()
 
     for name, prefix in SATELLITES.items():
-        df = fetch_satellite(key, name, prefix, args.start, args.end)
-        out = FIRMS_DIR / f"firms_viirs_{name}_{args.start}_{args.end}.csv"
+        df = fetch_satellite(key, name, prefix, args.start, args.end, site.firms_bbox)
+        out = site.firms_dir / f"firms_viirs_{name}_{args.start}_{args.end}.csv"
         df.to_csv(out, index=False)
         print(f"  {len(df)} detections -> {out}")
     return 0

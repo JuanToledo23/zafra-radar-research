@@ -1,14 +1,18 @@
 """Exercise 4e, steps 4-5: merge cane fragments, score the merged layer, slim export.
 
-    python scripts/15_merge_fragments.py
+    python scripts/15_merge_fragments.py [--site morelos]
 
-Input: data/results/harvest_dates_2025_26.geojson (scripts/14_area_harvest_map.py).
+Input: the site's paths.harvest_geojson (Morelos data/results/harvest_dates_2025_26.geojson,
+from scripts/14_area_harvest_map.py). Paths and CRS from configs/<site>.yaml; the file
+names below are Morelos's. A site without reference_fields skips step 2 and delivers the
+unmerged layer (the exercise-4e decision).
 
 1. Adjacent gated cane segments (>= 10 m of shared boundary) are merged when their harvest
    dates differ by <= 6 days, or both have no date and the same status
    (segments.merge_groups; a merged group's dates never span more than 6 days). Date,
-   p_cane, p_cane_radar, hv_drop_db, coh_min are area-weighted; status, confidence,
-   wc_class from the largest member; fires_7d_before is recounted for the merged polygon.
+   p_cane, p_cane_radar, p_cane_optical, hv_drop_db, coh_min are area-weighted; status,
+   confidence, wc_class, date_uncertainty_days from the largest member; fires_7d_before
+   is recounted for the merged polygon.
    Non-cane segments are left as they are.
 2. IoU against the 38 fields_v2 polygons, unmerged vs merged (cane merged + non-cane as is).
    If the merged layer scores better (more fields with IoU >= 0.5, then median IoU) it is
@@ -20,6 +24,7 @@ Input: data/results/harvest_dates_2025_26.geojson (scripts/14_area_harvest_map.p
    the delivered layer.
 """
 
+import argparse
 import json
 import sys
 import time
@@ -32,15 +37,9 @@ from zafra import cane_features as CF
 from zafra import fires as F
 from zafra import plots
 from zafra import segments as S
-from zafra.paths import DATA_DIR, FIELDS_DIR, FIRMS_DIR, RESULTS_DIR
+from zafra.site import add_site_argument, load_site
 
-IN = DATA_DIR / "results" / "harvest_dates_2025_26.geojson"
-MERGED = DATA_DIR / "results" / "harvest_dates_2025_26_merged.geojson"
-SLIM = DATA_DIR / "results" / "harvest_map_2025_26_slim.geojson"
-REF = FIELDS_DIR / "fields_v2.geojson"
-OUT_DIR = RESULTS_DIR / "4e"
-METRIC = S.METRIC_CRS
-WEIGHTED = ["p_cane", "p_cane_radar", "hv_drop_db", "coh_min"]
+WEIGHTED = ["p_cane", "p_cane_radar", "p_cane_optical", "hv_drop_db", "coh_min"]
 FIRST = [
     "seg_id",
     "source",
@@ -52,13 +51,16 @@ FIRST = [
     "wc_class",
     "wc_disagrees",
     "harvest_after",
+    "date_uncertainty_days",
 ]
 SLIM_COLS = [
     "segment_id",
     "area_ha",
     "p_cane",
     "p_cane_radar",
+    "p_cane_optical",
     "harvest_date",
+    "date_uncertainty_days",
     "status",
     "confidence",
     "hv_drop_db",
@@ -67,6 +69,19 @@ SLIM_COLS = [
 ]
 SLIM_SIMPLIFY_M = 5.0
 SLIM_DIGITS = 6  # decimal degrees: ~0.1 m
+
+
+def configure(site):
+    """Module settings from a site config (see zafra.site)."""
+    global IN, MERGED, SLIM, REF, OUT_DIR, METRIC, FIRMS_DIR, ZAFRA, GATE
+    IN, MERGED = site.path("harvest_geojson"), site.path("merged_geojson")
+    SLIM = site.path("slim_geojson")
+    REF = site.reference_fields
+    OUT_DIR = site.path("results_dir")
+    METRIC = site.metric_crs
+    FIRMS_DIR = site.firms_dir
+    ZAFRA = site.zafra
+    GATE = site.gate_variant
 
 
 def md_table(df: pd.DataFrame) -> str:
@@ -102,7 +117,7 @@ def recount_fires(gdf):
     """VIIRS detections <= 200 m in the 7 days before harvest_after, per dated polygon."""
     dated = gdf[gdf["harvest_after"].notna()]
     ft = F.fires_per_field_fast(
-        F.load_firms(FIRMS_DIR), dated.assign(id=dated["seg_id"]), CF.FIRE_BUFFER_M
+        F.load_firms(FIRMS_DIR), dated.assign(id=dated["seg_id"]), CF.FIRE_BUFFER_M, crs=METRIC
     )
     ft["t"] = ft["acq_utc"].dt.tz_convert("UTC").dt.tz_localize(None)
     after = dated.set_index("seg_id")["harvest_after"].pipe(pd.to_datetime)
@@ -117,7 +132,7 @@ def iou_tables(unmerged, merged):
     ref = gpd.read_file(REF)
     rows, per = [], []
     for name, layer in (("unmerged", unmerged), ("merged", merged)):
-        m = S.match_fields(ref, layer).merge(
+        m = S.match_fields(ref, layer, crs=METRIC).merge(
             ref[["id", "label"]], left_on="field_id", right_on="id"
         )
         per.append(m.assign(layer=name))
@@ -132,7 +147,7 @@ def slim(gdf):
     s = S.fix_geometries(s)
     s = s.rename(columns={"seg_id": "segment_id"})
     s["area_ha"] = s["area_ha"].round(2)
-    for c in ("p_cane", "p_cane_radar", "coh_min"):
+    for c in ("p_cane", "p_cane_radar", "p_cane_optical", "coh_min"):
         s[c] = s[c].round(3)
     s["hv_drop_db"] = s["hv_drop_db"].round(2)
     s["wc_disagrees"] = s["wc_disagrees"].fillna(False).astype(bool)
@@ -142,6 +157,9 @@ def slim(gdf):
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    add_site_argument(ap)
+    configure(load_site(ap.parse_args().site))
     t0 = time.perf_counter()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     g = gpd.read_file(IN)
@@ -172,15 +190,19 @@ def main() -> int:
             },
         ]
     )
-    summ, per = iou_tables(g, merged)
     print(md_table(sizes))
-    print(md_table(summ))
+    if REF is not None:
+        summ, per = iou_tables(g, merged)
+        print(md_table(summ))
 
-    def score(layer):
-        r = summ[(summ["layer"] == layer) & (summ["fields"] == "all 38")].iloc[0]
-        return (r["n_iou_ge_0_5"], r["median_iou"])
+        def score(layer):
+            r = summ[(summ["layer"] == layer) & (summ["fields"] == "all 38")].iloc[0]
+            return (r["n_iou_ge_0_5"], r["median_iou"])
 
-    better = score("merged") > score("unmerged")
+        better = score("merged") > score("unmerged")
+    else:
+        summ = per = None
+        better = False  # nothing to score against: keep the exercise-4e choice
     delivered = merged if better else g
     name = "merged" if better else "unmerged"
     print(f"delivered layer: {name}")
@@ -195,14 +217,11 @@ def main() -> int:
     plots.harvest_map(
         delivered,
         OUT_DIR / "harvest_map.png",
-        title="Zafra 2025-26: estimated harvest date "
-        f"({name} segments, gate B + 4b xgboost, 3-look baseline)",
+        title=f"Zafra {ZAFRA}: estimated harvest date "
+        f"({name} segments, gate {GATE} + 4b xgboost, 3-look baseline)",
+        crs=METRIC,
     )
 
-    wide = per.pivot(index="field_id", columns="layer", values="iou")
-    lab = per.drop_duplicates("field_id").set_index("field_id")[["label", "field_ha"]]
-    tab = lab.join(wide[["unmerged", "merged"]]).assign(delta=lambda x: x["merged"] - x["unmerged"])
-    tab = tab.reset_index().sort_values("delta", ascending=False)
     lines = [
         "# Exercise 4e: merging cane fragments",
         "",
@@ -215,17 +234,22 @@ def main() -> int:
         "",
         md_table(sizes),
         "",
-        "## IoU against the 38 fields_v2 polygons",
-        "",
-        md_table(summ),
-        "",
-        f"Delivered layer: **{name}**. Slim GeoJSON: {len(s)} polygons, {size_mb:.1f} MB.",
-        "",
-        "## Per field",
-        "",
-        md_table(tab),
+    ]
+    if per is not None:
+        wide = per.pivot(index="field_id", columns="layer", values="iou")
+        lab = per.drop_duplicates("field_id").set_index("field_id")[["label", "field_ha"]]
+        tab = lab.join(wide[["unmerged", "merged"]])
+        tab = tab.assign(delta=lambda x: x["merged"] - x["unmerged"])
+        tab = tab.reset_index().sort_values("delta", ascending=False)
+        lines += ["## IoU against the 38 fields_v2 polygons", "", md_table(summ), ""]
+    lines += [
+        f"Delivered layer: **{name}**"
+        + ("" if per is not None else " (no reference polygons to score the merge)")
+        + f". Slim GeoJSON: {len(s)} polygons, {size_mb:.1f} MB.",
         "",
     ]
+    if per is not None:
+        lines += ["## Per field", "", md_table(tab), ""]
     (OUT_DIR / "merge.md").write_text("\n".join(lines))
     (OUT_DIR / "merge_summary.json").write_text(
         json.dumps(
@@ -233,7 +257,7 @@ def main() -> int:
                 "adjacent_cane_pairs": n_pairs,
                 "merged_groups_with_2plus": n_groups,
                 "sizes": sizes.to_dict("records"),
-                "iou": summ.to_dict("records"),
+                "iou": None if summ is None else summ.to_dict("records"),
                 "delivered": name,
                 "slim_mb": round(size_mb, 2),
                 "slim_polygons": len(s),

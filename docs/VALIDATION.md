@@ -765,3 +765,86 @@ harvest along with the artefact.
 * The gate and the detector were trained on 38 and 26 hand-traced fields respectively and
   are applied here to 39 542 polygons of every land cover. Nothing in this section is an
   accuracy figure: it is a plausibility check against fires.
+
+## Exercise 5: transfer to a second site (Ribeirão Preto, Brazil)
+
+Details: `results/5_brazil/transfer.md` and `validation.md` (script 16). No NISAR L2
+product covers any Thai cane region in the 2025-26 window, so the fallback site is a
+30 × 31 km window near Ribeirão Preto, São Paulo, for the safra 2026-27 (harvest Apr 1 –
+Nov 30). The radar covers 2026-06-22 .. 10-22. **The Morelos gates, detector and
+segmentation parameters are applied unchanged.** The season, AOI, CRS, paths and the
+choice of delivered gate (`gate_variant`) come from `configs/brazil.yaml`.
+
+**Caveats that shape every number below:**
+* mechanized green harvest with a trash blanket, so there is almost no burning;
+* an opposite season;
+* no radar before late June, so the baseline is Jun–Jul rather than Jan–Mar, when the
+  cane would still be standing;
+* no reference fields: the checks are against an independent NDVI rule and MapBiomas 2024,
+  not ground truth.
+
+### The gate (land cover), judged against MapBiomas 2024
+
+| gate | ha gated | precision (ha) | recall (ha) |
+|---|---|---|---|
+| A radar (**delivered** on Brazil) | 57 044 (65.3 % of AOI) | 72.0 % | 63.7 % |
+| B optical (pure transfer; delivered on Morelos) | 42 491 (48.6 %) | 77.8 % | 51.2 % |
+| B with local labels (MapBiomas, 5-fold CV by 3 km blocks; reference only) | 62 075 (71.0 %) | 89.0 % | 85.6 % |
+
+MapBiomas maps 64 556 ha (73.9 %) as cane.
+* **The optical gate transfers poorly: it finds about half of the cane area.**
+* The radar gate agrees better, so it is the delivered gate here. This is the reverse of
+  Morelos.
+* Re-fitting B on local labels closes most of the gap. That shows the features are usable
+  and the Morelos fit is what fails to transfer. Its score is against the same map it
+  learned from, so it is optimistic.
+* Gate A still calls 6 346 ha of MapBiomas forest (riparian corridors) cane. Its
+  confidence tier does not separate MapBiomas cane (61 % "high" vs 62 % "uncertain").
+
+### The detector (dates), judged against independent NDVI windows
+
+The sample is 40 dated and 20 undated gated-cane segments (seed 5), drawn from the
+delivered gate's cane set; the NDVI windows come from the script-07 rule on the local S2
+stack.
+
+| delivered gate | median abs. error | mean error | within ±6 d | within ±12 d | missed | false alarms |
+|---|---|---|---|---|---|---|
+| A (delivered) | 5.0 d | +6.7 d | 21/40 | 30/40 | 10/20 | 4/40 |
+| B (first run) | 4.5 d | +8.1 d | 25/40 | 28/40 | 7/20 | 2/40 |
+
+* **Given a cane segment with a standing baseline, the Morelos detector dates Brazilian cuts
+  within about a week of an NDVI rule.** The median error is 4.5-5 d (Morelos 4b: about
+  3.5 d against labels), with a late tail.
+* A's wider cane set adds marginal segments, which shows up as more misses and false
+  alarms. The detector is the same model in both rows.
+* **Coverage limits it more than accuracy does.** Of the 21 171 gate-A cane segments:
+  * 4 780 are dated (p10 / median / p90 = 07-30 / 08-28 / 10-09);
+  * 6 576 have no standing baseline;
+  * 9 815 have no detection.
+* **Date uncertainty.** Each harvest GeoJSON (all sites) now carries
+  `date_uncertainty_days`, half the gap between the last standing and the first harvested
+  acquisition. On Brazil:
+  * 1 466 segments are dated 07-30 ± 12 d, from the single 24-day gap 07-18 → 08-11
+    (no ascending look on 07-30). This is the whole July "peak".
+  * 69 % of dated segments are within ±6 d.
+
+  **The frontend should display this uncertainty with every date** (e.g. "30 Jul ± 12 d"
+  and a hatched or lighter colour for wide windows), instead of a bare date.
+* **HV drop at harvest:** median over dated segments −5.1 dB (gate A; −5.4 dB with B),
+  against −3.0 dB on the Morelos area map and −3.5 dB on the Morelos labelled fields. This
+  is larger, not smaller as a green harvest suggested. **Open hypothesis, not established:**
+  * larger fields, with less edge mixing within a segment;
+  * very dry soil in the São Paulo winter (Aug–Sep), which lowers the backscatter of the
+    cut field;
+  * selection by the detector is a third possibility.
+
+  None has been tested.
+
+### Limitations
+
+* **The fire check is not meaningful here.** There are 17 VIIRS fires in the season, all
+  before the first datable date, and r ≈ −0.1.
+* MapBiomas is a 2024 map, majority-voted per segment. Disagreement is partly MapBiomas
+  error and partly segments that mix cane and riparian strips.
+* The NDVI check is the same rule that defined the 4b training labels, so it is agreement
+  with an optical method, not with grower dates.

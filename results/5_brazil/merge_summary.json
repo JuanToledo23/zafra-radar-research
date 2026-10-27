@@ -1,0 +1,27 @@
+{
+  "adjacent_cane_pairs": 42614,
+  "merged_groups_with_2plus": 1943,
+  "sizes": [
+    {
+      "layer": "unmerged",
+      "cane polygons": 21171,
+      "median cane ha": 1.22,
+      "mean cane ha": 2.694444286996363,
+      "dated cane polygons": 4780,
+      "all polygons": 32277
+    },
+    {
+      "layer": "merged",
+      "cane polygons": 4685,
+      "median cane ha": 1.8099103314859217,
+      "mean cane ha": 12.175896720403822,
+      "dated cane polygons": 1492,
+      "all polygons": 15791
+    }
+  ],
+  "iou": null,
+  "delivered": "unmerged",
+  "slim_mb": 41.75,
+  "slim_polygons": 21171,
+  "runtime_s": 31.4
+}

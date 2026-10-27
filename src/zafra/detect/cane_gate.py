@@ -74,8 +74,10 @@ VARIANT_ALIASES = {"radar": "A", "radar+fire": "A+F", "optical": "B", "combined"
 # the independent check and is always returned as p_cane_radar (docs/METHODS.md, 4c).
 DEFAULT_VARIANT = "optical"
 RADAR_VARIANT = "A"
+OPTICAL_VARIANT = "B"
 TRAIN_ZAFRA = "2025-26"  # the only zafra with NISAR data
 THRESHOLD = 0.5
+MORELOS_ZAFRA_MONTHS = [11, 12, 1, 2, 3, 4, 5]  # fallback for collapse_in_zafra
 HIGH_CONF = (0.2, 0.8)  # p < 0.2 or p > 0.8 -> "high", otherwise "uncertain"
 
 # Transparent rules for comparison
@@ -84,11 +86,21 @@ RADAR_RULE_DROP_DB = -2.0
 
 
 def design_matrix(df: pd.DataFrame, features) -> pd.DataFrame:
-    """Model inputs. collapse_in_zafra: 1 if the main NDVI collapse is in Nov-May, 0 if in
-    Jun-Oct, NaN if none (a month number is not a usable linear feature)."""
+    """Model inputs. collapse_in_zafra: 1 if the main NDVI collapse is inside the row's
+    zafra window, 0 if elsewhere in the crop year, NaN if none (a month number is not a
+    usable linear feature). Rows without collapse_date / zafra fall back to the Morelos
+    month rule (Nov-May), which is the same thing for the Morelos zafras."""
+    from zafra import cane_features as CF
+
     X = df.copy()
-    m = X["ndvi_collapse_month"] if "ndvi_collapse_month" in X else pd.Series(np.nan, X.index)
-    X["collapse_in_zafra"] = np.where(m.isna(), np.nan, m.isin([11, 12, 1, 2, 3, 4, 5]))
+    if "collapse_date" in X and "zafra" in X:
+        X["collapse_in_zafra"] = [
+            CF.collapse_in_zafra(d, z) if isinstance(z, str) else np.nan
+            for d, z in zip(X["collapse_date"], X["zafra"], strict=True)
+        ]
+    else:
+        m = X["ndvi_collapse_month"] if "ndvi_collapse_month" in X else pd.Series(np.nan, X.index)
+        X["collapse_in_zafra"] = np.where(m.isna(), np.nan, m.isin(MORELOS_ZAFRA_MONTHS))
     return X[list(features)].astype("float64")
 
 
@@ -201,8 +213,9 @@ def classify_fields(gdf, zafra: str, variant: str = DEFAULT_VARIANT, features=No
     train:    (training features, y); default: the 38 labelled fields_v2 polygons, 2025-26.
     Returns a copy of gdf with p_cane (chosen variant), cane_pred (p >= 0.5), confidence
     ("high" if p < 0.2 or p > 0.8, "uncertain" otherwise, "no_data" if the zafra has no
-    data for this variant), gate_variant, and p_cane_radar: P from the radar-only variant A,
-    always, so a map can show the independent radar evidence per field.
+    data for this variant), gate_variant, and, always, p_cane_radar (radar-only variant A)
+    and p_cane_optical (optical variant B), so a map can show both independent sources of
+    evidence per field whichever variant is delivered.
     """
     zafra = zafra.replace("/", "-")
     variant = resolve_variant(variant)
@@ -219,6 +232,9 @@ def classify_fields(gdf, zafra: str, variant: str = DEFAULT_VARIANT, features=No
     out["gate_variant"] = variant
     out["p_cane_radar"] = (
         p if variant == RADAR_VARIANT else _gate_probability(f, RADAR_VARIANT, train)
+    )
+    out["p_cane_optical"] = (
+        p if variant == OPTICAL_VARIANT else _gate_probability(f, OPTICAL_VARIANT, train)
     )
     return out
 

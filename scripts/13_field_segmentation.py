@@ -1,8 +1,11 @@
 """Exercise 4d, steps 2-3: segment the supply area into candidate fields and score them.
 
-    python scripts/13_field_segmentation.py [--stage sam|polygons|all] [--force]
+    python scripts/13_field_segmentation.py [--site morelos] [--stage sam|polygons|all] [--force]
 
-Inputs: data/s2/ from scripts/12_s2_images.py.
+Inputs: the site's s2_dir (Morelos data/s2/) from scripts/12_s2_images.py. Paths, CRS and
+the reference polygons come from configs/<site>.yaml. A site without reference_fields
+(exercise 5) runs only the delivered variant, Felzenszwalb (step 2) with the same
+parameters, and skips SAM and the IoU scoring: its polygons go straight to paths.segments.
 
 1. SAM (ViT-B, samgeo automatic mask generation, CPU, tiled) on
    (a) the clearest Dec-Jan scene as true colour (B4, B3, B2), and
@@ -28,13 +31,15 @@ import rasterio
 
 from zafra import segments as S
 from zafra.paths import DATA_DIR, FIELDS_DIR, RESULTS_DIR
+from zafra.site import add_site_argument, load_site
 
-S2_DIR = DATA_DIR / "s2"
 CKPT_DIR = DATA_DIR / "models" / "sam"
-SCENE = sorted(S2_DIR.glob("s2_scene_*.tif"))
+# Site paths, set by configure() from configs/<site>.yaml (Morelos values shown).
+S2_DIR = DATA_DIR / "s2"
 TEMPORAL = S2_DIR / "s2_temporal_2025_26.tif"
 WORLDCOVER = S2_DIR / "worldcover_2021.tif"
 REF = FIELDS_DIR / "fields_v2.geojson"
+SEGMENTS = FIELDS_DIR / "segments.geojson"
 OUT_DIR = RESULTS_DIR / "4d"
 RUNTIME_LOG = OUT_DIR / "runtimes.json"
 VARIANTS = {
@@ -42,6 +47,17 @@ VARIANTS = {
     "sam_temporal": "SAM on the NDVI stack (median, std, min)",
     "classic": "Felzenszwalb on the NDVI stack (median, std, min)",
 }
+
+
+def configure(site):
+    global S2_DIR, TEMPORAL, WORLDCOVER, REF, SEGMENTS, OUT_DIR, RUNTIME_LOG
+    S2_DIR = site.path("s2_dir")
+    TEMPORAL = site.path("temporal")
+    WORLDCOVER = site.path("worldcover")
+    REF = site.reference_fields
+    SEGMENTS = site.path("segments")
+    OUT_DIR = site.path("segmentation_results_dir")
+    RUNTIME_LOG = OUT_DIR / "runtimes.json"
 
 
 def log_runtime(key, seconds, extra=None):
@@ -53,7 +69,7 @@ def log_runtime(key, seconds, extra=None):
 
 def stage_sam(force):
     inputs = {
-        "rgb": (SCENE[-1], (1, 2, 3)),
+        "rgb": (sorted(S2_DIR.glob("s2_scene_*.tif"))[-1], (1, 2, 3)),
         "temporal": (TEMPORAL, (1, 2, 3)),
     }
     for name, (src, bands) in inputs.items():
@@ -74,27 +90,29 @@ def stage_sam(force):
         )
 
 
-def polygons_from_labels(labels, transform):
-    gdf = S.labels_to_polygons(labels, transform)
-    clean, counts = S.clean_segments(gdf, worldcover_tif=WORLDCOVER)
+def polygons_from_labels(labels, transform, crs):
+    gdf = S.labels_to_polygons(labels, transform, crs=crs)
+    clean, counts = S.clean_segments(gdf, worldcover_tif=WORLDCOVER, crs=crs)
     return clean, counts
 
 
-def stage_polygons():
+def stage_polygons(sam=True):
     out, counts = {}, {}
-    for name in ("rgb", "temporal"):
+    for name in ("rgb", "temporal") if sam else ():
         with rasterio.open(S2_DIR / f"sam_mask_{name}.tif") as ds:
-            mask, tr = ds.read(1), ds.transform
+            mask, tr, crs = ds.read(1), ds.transform, ds.crs
         t = time.perf_counter()
-        out[f"sam_{name}"], counts[f"sam_{name}"] = polygons_from_labels(S.mask_to_labels(mask), tr)
+        out[f"sam_{name}"], counts[f"sam_{name}"] = polygons_from_labels(
+            S.mask_to_labels(mask), tr, crs
+        )
         print(f"sam_{name}: polygons in {time.perf_counter() - t:.0f} s, {counts[f'sam_{name}']}")
 
     t = time.perf_counter()
     with rasterio.open(TEMPORAL) as ds:
         med, std, mn = ds.read([1, 2, 3])
-        tr = ds.transform
+        tr, crs = ds.transform, ds.crs
     lab = S.classic_labels(med, std, mn)
-    out["classic"], counts["classic"] = polygons_from_labels(lab, tr)
+    out["classic"], counts["classic"] = polygons_from_labels(lab, tr, crs)
     dt = time.perf_counter() - t
     log_runtime("step2b_classic", dt)
     print(f"classic: {dt:.0f} s, {counts['classic']}")
@@ -106,7 +124,7 @@ def stage_polygons():
         g["area_ha"] = g["area_ha"].round(3)
         g = g.to_crs("EPSG:4326")
         g.geometry = g.geometry.set_precision(1e-7)  # ~1 cm; keeps the files small
-        g.to_file(FIELDS_DIR / f"segments_{name}.geojson", driver="GeoJSON")
+        g.to_file(SEGMENTS.parent / f"segments_{name}.geojson", driver="GeoJSON")
         out[name] = g
     (OUT_DIR / "cleaning_counts.json").write_text(json.dumps(counts, indent=2))
     return out, counts
@@ -182,7 +200,7 @@ def stage_evaluate(segs, counts):
     print(summ.to_string(index=False))
     # Best: highest share with IoU >= 0.5, then median IoU.
     best = summ.sort_values(["n_iou_ge_0_5", "median_iou"], ascending=False).iloc[0]["variant"]
-    shutil.copy(FIELDS_DIR / f"segments_{best}.geojson", FIELDS_DIR / "segments.geojson")
+    shutil.copy(SEGMENTS.parent / f"segments_{best}.geojson", SEGMENTS)
     print(f"best variant: {best} -> data/fields/segments.geojson")
     (OUT_DIR / "segmentation_choice.json").write_text(json.dumps({"best": best}, indent=2))
     write_report(per, summ, best, counts)
@@ -191,10 +209,19 @@ def stage_evaluate(segs, counts):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    add_site_argument(ap)
     ap.add_argument("--stage", choices=["sam", "polygons", "all"], default="all")
     ap.add_argument("--force", action="store_true", help="re-run SAM even if masks exist")
     args = ap.parse_args()
+    configure(load_site(args.site))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    SEGMENTS.parent.mkdir(parents=True, exist_ok=True)
+    if REF is None:
+        # No reference polygons to choose a variant with: the 4d choice, Felzenszwalb.
+        segs, counts = stage_polygons(sam=False)
+        shutil.copy(SEGMENTS.parent / "segments_classic.geojson", SEGMENTS)
+        print(f"classic -> {SEGMENTS} ({len(segs['classic'])} segments; no reference to score)")
+        return 0
     if args.stage in ("sam", "all"):
         stage_sam(args.force)
     if args.stage in ("polygons", "all"):

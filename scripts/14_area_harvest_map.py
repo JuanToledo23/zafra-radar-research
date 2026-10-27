@@ -1,7 +1,11 @@
 """Exercises 4d/4e: cane gate and harvest detector over every segment of the AOI.
 
-    python scripts/14_area_harvest_map.py [--segments data/fields/segments.geojson]
-                                          [--skip-check]
+    python scripts/14_area_harvest_map.py [--site morelos] [--segments <path>] [--skip-check]
+
+Inputs, outputs, season, CRS and NISAR folders come from configs/<site>.yaml (exercise 5);
+the file names below are Morelos's. The gate and the detector are always the models fitted
+on the Morelos fields_v2 polygons, whatever the site. Step 1 runs only for a site with
+reference_fields.
 
 1. Check: the vectorized zonal statistics (src/zafra/zonal.py) on the 38 fields_v2
    polygons, against the per-field tables of exercises 4b/4c. Must agree before going on.
@@ -12,11 +16,15 @@
      outputs/segments_ts/ and gathered into data/features/segments_timeseries.parquet
      (GCOV, both orbits) and data/features/segments_coherence.parquet;
    * VIIRS fires within 200 m (one spatial join).
-3. Cane gate (cane_gate.classify_fields, default optical variant B, p_cane_radar alongside).
+3. Cane gate (cane_gate.classify_fields), the site's gate_variant (Morelos: optical B;
+   Brazil: radar A), with p_cane_radar and p_cane_optical alongside. The date confidence
+   checks the delivered gate against the other one.
 4. 4b detector (xgboost default, logistic alternative), trained as in script 10 on the 26
    labelled fields_v2 cane fields, applied to every gated cane segment.
    Exercise 4e: a date is only emitted after >= 3 standing same-orbit acquisitions
    (model.dates_with_baseline); otherwise status harvested_before_coverage / no_baseline.
+   date_uncertainty_days: half the gap between the last standing and the first harvested
+   acquisition (the date is the midpoint of that gap).
 5. data/results/harvest_dates_2025_26.geojson (with status, wc_class, wc_disagrees),
    results/4e/harvest_map.png, results/4e/harvest_vs_fires_weekly.png (all AOI fires and
    fires within 200 m of gated cane), results/4e/weekly.csv, results/4e/area_summary.json.
@@ -39,31 +47,11 @@ from zafra import fires as F
 from zafra import plots, zonal
 from zafra.detect import cane_gate as G
 from zafra.detect import model as M
-from zafra.paths import (
-    DATA_DIR,
-    FEATURES_DIR,
-    FIELDS_DIR,
-    FIRMS_DIR,
-    NISAR_DIR,
-    OUTPUTS_DIR,
-    RESULTS_DIR,
-)
+from zafra.paths import FEATURES_DIR, FIELDS_DIR
+from zafra.site import add_site_argument, load_site
 
-ZAFRA = "2025-26"
-SEGMENTS = FIELDS_DIR / "segments.geojson"
-REF = FIELDS_DIR / "fields_v2.geojson"
-STACK = DATA_DIR / "s2" / "s2_ndvi_stack_2025_26.tif"
-ASC_DIR = NISAR_DIR
-DESC_DIR = NISAR_DIR / "GCOV_DESCENDING_t113f79"
-GUNW_DIR = NISAR_DIR / "GUNW_ASCENDING_t19f11"
-TS_CACHE = OUTPUTS_DIR / "segments_ts"
-TS_OUT = FEATURES_DIR / "segments_timeseries.parquet"
-COH_OUT = FEATURES_DIR / "segments_coherence.parquet"
-FEATS_OUT = FEATURES_DIR / "segments_cane_features.parquet"
-OUT_GEOJSON = DATA_DIR / "results" / "harvest_dates_2025_26.geojson"
-OUT_DIR = RESULTS_DIR / "4e"
-AOI = (-99.35, 18.50, -99.05, 18.75)
-SEASON = (pd.Timestamp("2025-11-01"), pd.Timestamp("2026-06-01"))
+# The detector's training fields (Morelos), independent of --site.
+TRAIN_FIELDS = FIELDS_DIR / "fields_v2.geojson"
 CHUNK = 500
 DETECTOR = {"xgb": "p_xgb", "logistic": "p_logistic"}  # first = default
 WC_DISAGREE = {10: "tree cover", 30: "grassland"}  # WorldCover classes flagged when gated cane
@@ -73,12 +61,35 @@ def log(msg):
     print(msg, flush=True)
 
 
+def configure(site):
+    """Module settings from a site config (see zafra.site)."""
+    global SITE, ZAFRA, SEGMENTS, REF, STACK, ASC_DIR, DESC_DIR, GUNW_DIR, TS_CACHE, TS_OUT
+    global COH_OUT, FEATS_OUT, OUT_GEOJSON, OUT_DIR, AOI, SEASON, CRS, FIRMS_DIR
+    SITE = site
+    ZAFRA = site.zafra
+    SEGMENTS = site.path("segments")
+    REF = site.reference_fields
+    STACK = site.path("ndvi_stack")
+    ASC_DIR, DESC_DIR, GUNW_DIR = (site.nisar[r].dir for r in ("gcov_asc", "gcov_desc", "gunw_asc"))
+    TS_CACHE = site.path("ts_cache")
+    TS_OUT, COH_OUT = site.path("timeseries"), site.path("coherence")
+    FEATS_OUT = site.path("cane_features")
+    OUT_GEOJSON = site.path("harvest_geojson")
+    OUT_DIR = site.path("results_dir")
+    AOI = site.firms_bbox
+    SEASON = site.season
+    CRS = site.metric_crs
+    FIRMS_DIR = site.firms_dir
+
+
 # --- inputs -------------------------------------------------------------------------------
 
 
 def radar_tables(gdf):
     """(acq for cane_features, gcov frames for features.assemble, enl, coh)."""
-    gc, coh = zonal.radar_timeseries(gdf, ASC_DIR, DESC_DIR, GUNW_DIR, TS_CACHE, log=lambda m: None)
+    gc, coh = zonal.radar_timeseries(
+        gdf, ASC_DIR, DESC_DIR, GUNW_DIR, TS_CACHE, log=lambda m: None, crs=CRS
+    )
     gc["date"] = pd.to_datetime(gc["date"])
     acq = gc.rename(columns={"HVHV_db": "hv_db", "HHHH_db": "hh_db", "ratio_db": "cross_ratio_db"})
     frames = [gc[gc["orbit"] == o] for o in ("asc", "desc")]
@@ -165,7 +176,7 @@ def check_against_fields_v2():
 
 def train_detector():
     """The script-10 models: all labelled rows of the 26 cane fields, n_trees from CV."""
-    fields = gpd.read_file(REF)
+    fields = gpd.read_file(TRAIN_FIELDS)
     windows = fields[["id", "harvest_window_start", "harvest_window_end"]].rename(
         columns={"id": "field_id"}
     )
@@ -179,14 +190,38 @@ def train_detector():
     return M.fit_full(rows, n_trees), n_trees
 
 
-def harvest_confidence(gate_conf, p_radar, detected) -> np.ndarray:
-    """high: gate sure it is cane and radar-only gate agrees; low: gate unsure and radar
-    disagrees; medium otherwise; none: no sustained detection. main() then sets "uncertain"
-    on undated cane segments that WorldCover maps as trees or grassland (wc_disagrees)."""
+def check_column() -> str:
+    """The independent gate the delivered one is checked against: the radar-only gate for
+    an optical (or combined) delivered gate, the optical gate for a radar-only one."""
+    v = SITE.gate_variant
+    return "p_cane_optical" if G.USES_RADAR[v] and not G.USES_OPTICAL[v] else "p_cane_radar"
+
+
+def harvest_confidence(gate_conf, p_check, detected) -> np.ndarray:
+    """high: gate sure it is cane and the other gate (check_column) agrees; low: gate unsure
+    and the other gate disagrees; medium otherwise; none: no sustained detection. main()
+    then sets "uncertain" on undated cane segments that WorldCover maps as trees or
+    grassland (wc_disagrees)."""
     sure = np.asarray(gate_conf) == "high"
-    radar = np.asarray(p_radar, dtype="float64") >= G.THRESHOLD
+    radar = np.asarray(p_check, dtype="float64") >= G.THRESHOLD
     out = np.where(sure & radar, "high", np.where(~sure & ~radar, "low", "medium"))
     return np.where(np.asarray(detected, dtype=bool), out, "none")
+
+
+def window_counts(win, out, detected, hd, f_all, f_cane) -> dict:
+    """Fires, harvests and harvested ha with a date in [win[0], win[1])."""
+    d = pd.to_datetime(out.loc[detected, "harvest_date"])
+    return {
+        "fires_all": int(f_all.between(*win, inclusive="left").sum()),
+        "fires_cane": int(f_cane.between(*win, inclusive="left").sum()),
+        "harvests": int(hd.between(*win, inclusive="left").sum()),
+        "harvest_ha": float(out.loc[detected].loc[(d >= win[0]) & (d < win[1]), "area_ha"].sum()),
+        "harvests_4d_rule": int(
+            pd.to_datetime(out["harvest_date_no_baseline_rule"])
+            .between(*win, inclusive="left")
+            .sum()
+        ),
+    }
 
 
 # --- main ---------------------------------------------------------------------------------
@@ -194,15 +229,18 @@ def harvest_confidence(gate_conf, p_radar, detected) -> np.ndarray:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--segments", default=str(SEGMENTS))
+    add_site_argument(ap)
+    ap.add_argument("--segments", help="default: the site's paths.segments")
     ap.add_argument("--skip-check", action="store_true")
     ap.add_argument("--force", action="store_true", help="recompute the per-segment features")
     args = ap.parse_args()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    OUT_GEOJSON.parent.mkdir(parents=True, exist_ok=True)
+    configure(load_site(args.site))
+    args.segments = args.segments or str(SEGMENTS)
+    for d in (OUT_DIR, OUT_GEOJSON.parent, TS_OUT.parent, FEATS_OUT.parent):
+        d.mkdir(parents=True, exist_ok=True)
     rt = {}
 
-    check = None if args.skip_check else check_against_fields_v2()
+    check = None if args.skip_check or REF is None else check_against_fields_v2()
 
     seg = gpd.read_file(args.segments)
     seg["id"] = seg["seg_id"]
@@ -216,7 +254,7 @@ def main() -> int:
     log(f"radar zonal, one pass per scene: {rt['step5_radar_zonal_s']:.0f} s")
     acq.to_parquet(TS_OUT, index=False)
     coh.to_parquet(COH_OUT, index=False)
-    fire_table = F.fires_per_field_fast(F.load_firms(FIRMS_DIR), seg, CF.FIRE_BUFFER_M)
+    fire_table = F.fires_per_field_fast(F.load_firms(FIRMS_DIR), seg, CF.FIRE_BUFFER_M, crs=CRS)
     t = time.perf_counter()
     feats = pd.read_parquet(FEATS_OUT) if FEATS_OUT.exists() and not args.force else None
     if feats is not None and set(feats["field_id"]) == set(seg["id"]):
@@ -226,7 +264,7 @@ def main() -> int:
         ndvi, bare = optical_tables(seg)
         feats = chunked_table(seg["id"], acq, coh, ndvi, fire_table, bare)
         feats.to_parquet(FEATS_OUT, index=False)
-    gate = G.classify_fields(seg, ZAFRA, features=feats)
+    gate = G.classify_fields(seg, ZAFRA, SITE.gate_variant, features=feats)
     rt["step4_features_gate_s"] = time.perf_counter() - t
     log(f"features + gate: {rt['step4_features_gate_s']:.0f} s")
 
@@ -245,6 +283,7 @@ def main() -> int:
         acq_times,
         fire_table[fire_table["field_id"].isin(cane_ids)],
         None,
+        baseline_months=SITE.baseline_months,
     )
     models, n_trees = train_detector()
     pred = M.predict_rows(models, rows)
@@ -259,7 +298,7 @@ def main() -> int:
 
     # output table
     out = gate[["seg_id", "source", "area_ha", "geometry"]].copy()
-    for c in ("p_cane", "p_cane_radar", "cane_pred", "confidence"):
+    for c in ("p_cane", "p_cane_radar", "p_cane_optical", "cane_pred", "confidence"):
         out[c] = gate[c].to_numpy()
     out = out.rename(columns={"confidence": "gate_confidence"})
     f = feats.set_index("field_id").reindex(out["seg_id"])
@@ -277,6 +316,11 @@ def main() -> int:
     }
     out["harvest_date"] = np.where(detected, ymd["date"], None)
     out["harvest_after"] = np.where(detected, ymd["date_after"], None)
+    gap = (
+        pd.to_datetime(d["date_after"]).dt.normalize()
+        - pd.to_datetime(d["date_before"]).dt.normalize()
+    )
+    out["date_uncertainty_days"] = np.where(detected, gap.dt.days.to_numpy() / 2, np.nan)
     out["status"] = np.where(is_cane, d["status"].fillna(M.STATUS_NOT_DETECTED), "not_cane")
     out["method"] = np.where(detected, main_m, None)
     alt_ok = is_cane & alt["detected"].fillna(False).astype(bool).to_numpy()
@@ -286,7 +330,7 @@ def main() -> int:
     out["harvest_date_no_baseline_rule"] = np.where(
         detected_4d, pd.to_datetime(old["date"]).dt.strftime("%Y-%m-%d"), None
     )
-    out["confidence"] = harvest_confidence(out["gate_confidence"], out["p_cane_radar"], detected)
+    out["confidence"] = harvest_confidence(out["gate_confidence"], out[check_column()], detected)
     fr = pred.set_index(["field_id", "date"])["fire_7d"]
     keys = list(zip(out["seg_id"], pd.to_datetime(out["harvest_after"]), strict=True))
     out["fires_7d_before"] = [
@@ -307,8 +351,8 @@ def main() -> int:
     fires = fires.cx[AOI[0] : AOI[2], AOI[1] : AOI[3]]
     ft = fires["acq_utc"].dt.tz_convert("UTC").dt.tz_localize(None)
     fires = fires[((ft >= SEASON[0]) & (ft < SEASON[1])).to_numpy()]
-    cane_zone = out[is_cane].to_crs("EPSG:32614").buffer(CF.FIRE_BUFFER_M).union_all()
-    in_cane = fires.to_crs("EPSG:32614").within(cane_zone).to_numpy()
+    cane_zone = out[is_cane].to_crs(CRS).buffer(CF.FIRE_BUFFER_M).union_all()
+    in_cane = fires.to_crs(CRS).within(cane_zone).to_numpy()
     f_all = fires["acq_utc"].dt.tz_convert("UTC").dt.tz_localize(None)
     f_cane = f_all[in_cane]
 
@@ -316,8 +360,9 @@ def main() -> int:
     plots.harvest_map(
         out,
         OUT_DIR / "harvest_map.png",
-        title=f"Zafra {ZAFRA}: estimated harvest date per segment (gate B + 4b xgboost, "
-        "3-look baseline)",
+        title=f"Zafra {ZAFRA}: estimated harvest date per segment (gate {SITE.gate_variant} "
+        "+ 4b xgboost, 3-look baseline)",
+        crs=CRS,
     )
     hd = pd.to_datetime(out.loc[detected, "harvest_date"])
     end = SEASON[1] - pd.Timedelta(days=1)
@@ -348,10 +393,11 @@ def main() -> int:
     corr_4d = plots.week_correlation(weekly["harvests_no_baseline_rule"], weekly["fires_all"])
     rt["step4_5_wall_s"] = time.perf_counter() - t0
 
-    april = (pd.Timestamp("2026-04-01"), pd.Timestamp("2026-05-01"))
+    # Exercise-4e diagnostic windows (site zafra.check_windows; Morelos only).
+    april = SITE.check_windows.get("april")
+    dec = SITE.check_windows.get("dated_dec1_20")
     cane = out[is_cane]
     status = out.loc[is_cane, "status"]
-    dec = (pd.Timestamp("2025-12-01"), pd.Timestamp("2025-12-21"))
     summary = {
         "segments": len(out),
         "predicted_cane": int(is_cane.sum()),
@@ -374,38 +420,36 @@ def main() -> int:
             "status_cane": dates_any.reindex(out.loc[is_cane, "seg_id"])["status"]
             .value_counts()
             .to_dict(),
-            "dated_dec1_20": int(
-                pd.to_datetime(dates_any["date"])
-                .reindex(out.loc[is_cane, "seg_id"])
-                .between(*dec)
-                .sum()
+            **(
+                {
+                    "dated_dec1_20": int(
+                        pd.to_datetime(dates_any["date"])
+                        .reindex(out.loc[is_cane, "seg_id"])
+                        .between(*dec)
+                        .sum()
+                    )
+                }
+                if dec
+                else {}
             ),
         },
-        "dated_dec1_20": {
-            "4d_rule": int(
-                pd.to_datetime(out["harvest_date_no_baseline_rule"]).between(*dec).sum()
-            ),
-            "baseline_rule": int(pd.to_datetime(out["harvest_date"]).between(*dec).sum()),
-        },
+        **(
+            {
+                "dated_dec1_20": {
+                    "4d_rule": int(
+                        pd.to_datetime(out["harvest_date_no_baseline_rule"]).between(*dec).sum()
+                    ),
+                    "baseline_rule": int(pd.to_datetime(out["harvest_date"]).between(*dec).sum()),
+                }
+            }
+            if dec
+            else {}
+        ),
         "wc_disagrees": int(out["wc_disagrees"].sum()),
         "wc_disagrees_ha": float(out.loc[out["wc_disagrees"], "area_ha"].sum()),
         "fires_all_season": int(len(f_all)),
         "fires_cane_season": int(len(f_cane)),
-        "april": {
-            "fires_all": int(f_all.between(*april, inclusive="left").sum()),
-            "fires_cane": int(f_cane.between(*april, inclusive="left").sum()),
-            "harvests": int(hd.between(*april, inclusive="left").sum()),
-            "harvest_ha": float(
-                out.loc[detected][pd.to_datetime(out.loc[detected, "harvest_date"]) >= april[0]]
-                .loc[lambda x: pd.to_datetime(x["harvest_date"]) < april[1], "area_ha"]
-                .sum()
-            ),
-            "harvests_4d_rule": int(
-                pd.to_datetime(out["harvest_date_no_baseline_rule"])
-                .between(*april, inclusive="left")
-                .sum()
-            ),
-        },
+        **({"april": window_counts(april, out, detected, hd, f_all, f_cane)} if april else {}),
         "week_corr": {k: v.round(3).to_dict("records") for k, v in corr.items()},
         "week_corr_4d_rule_fires_all": corr_4d.round(3).to_dict("records"),
         "check_vs_fields_v2": check,

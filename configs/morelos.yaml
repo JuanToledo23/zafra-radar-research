@@ -1,0 +1,58 @@
+# Site configuration (zafra.site). Morelos: Ingenio Emiliano Zapata supply area, zafra 2025-26.
+# Everything here was hard-coded in scripts 00, 12-15 before exercise 5; paths are relative
+# to the repo root.
+name: morelos
+description: Ingenio Emiliano Zapata supply area, Morelos, Mexico (training site)
+
+aoi:
+  bbox: [-99.35, 18.50, -99.05, 18.75]  # lon0, lat0, lon1, lat1 (= FIRMS bbox)
+  epsg: 32614  # UTM 14N: S2 grid, buffers, areas
+
+nisar:
+  root: data/nisar  # new track/frames go to <root>/<product>_<direction>_t<N>f<N>/
+  search: {start: "2025-11-15", end: "2026-05-21"}
+  sources:
+    gcov_asc: {product: GCOV, direction: ASCENDING, track: 19, frame: 11, dir: data/nisar}
+    gcov_desc:
+      {product: GCOV, direction: DESCENDING, track: 113, frame: 79,
+       dir: data/nisar/GCOV_DESCENDING_t113f79}
+    gunw_asc:
+      {product: GUNW, direction: ASCENDING, track: 19, frame: 11,
+       dir: data/nisar/GUNW_ASCENDING_t19f11}
+
+zafra:
+  name: "2025-26"
+  start: "2025-11-01"  # season window, end exclusive
+  end: "2026-06-01"
+  crop_year_start: "2025-06-01"  # NDVI phenology: crop_year_start .. end
+  scene_window: ["2025-12-01", "2026-02-01"]  # clearest full-canopy S2 scene, end exclusive
+  baseline_months: [11, 12]  # radar baseline / pre-harvest level: cane standing everywhere
+  check_windows:  # exercise-4e diagnostics in area_summary.json (both dated_dec1_20 ends included)
+    dated_dec1_20: ["2025-12-01", "2025-12-21"]
+    april: ["2026-04-01", "2026-05-01"]
+
+firms:
+  start: "2024-11-01"
+  end: "2026-05-31"
+  dir: data/firms
+
+# gate B (optical), as in exercise 4c-4e; p_cane_radar alongside
+gate_variant: optical
+
+reference_fields: data/fields/fields_v2.geojson  # scores the segmentation (IoU)
+
+paths:
+  s2_dir: data/s2
+  ndvi_stack: data/s2/s2_ndvi_stack_2025_26.tif
+  temporal: data/s2/s2_temporal_2025_26.tif
+  worldcover: data/s2/worldcover_2021.tif
+  segments: data/fields/segments.geojson
+  segmentation_results_dir: results/4d
+  ts_cache: outputs/segments_ts
+  timeseries: data/features/segments_timeseries.parquet
+  coherence: data/features/segments_coherence.parquet
+  cane_features: data/features/segments_cane_features.parquet
+  harvest_geojson: data/results/harvest_dates_2025_26.geojson
+  merged_geojson: data/results/harvest_dates_2025_26_merged.geojson
+  slim_geojson: data/results/harvest_map_2025_26_slim.geojson
+  results_dir: results/4e

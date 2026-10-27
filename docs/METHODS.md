@@ -305,6 +305,133 @@ what separates it from cane.
   cane, not a sample of everything a user might draw (orchards, towns, irrigated
   vegetables). Applied to other land covers, the gate is untested.
 
+## Field delineation (exercise 4d)
+
+Code: `src/zafra/segments.py` (segmentation, cleaning, IoU matching), `src/zafra/zonal.py`
+(per-segment statistics), `src/zafra/plots.py` (area maps), drivers
+`scripts/12_s2_images.py`, `scripts/13_field_segmentation.py`,
+`scripts/14_area_harvest_map.py`, tests `tests/test_segments.py`. Results:
+`results/4d/segmentation.md`, `results/4d/area_summary.json`, `docs/VALIDATION.md`.
+
+**Purpose.** Replace hand-traced polygons with candidate field polygons for the whole
+Ingenio Emiliano Zapata supply area (AOI = the FIRMS bbox, lon −99.35..−99.05, lat
+18.50..18.75, ~760 km² of land after cleaning), so the gate (4c) and the detector (4b) can run
+area-wide.
+
+### Input images (Sentinel-2 L2A, Earth Engine)
+
+All on one 10 m UTM 14N grid (EPSG:32614, 3168 × 2771 px), downloaded with
+`getDownloadURL` in 1000 × 1000 px tiles (400 × 400 for the stack), each tile on an explicit
+`crs_transform` of the same grid, so tiles abut exactly (`optical.download_tiled`).
+
+* **Clearest scene** of 2025-12-01 .. 2026-01-31: 2026-01-10, 99.9 % of the AOI SCL-clear.
+  B4, B3, B2, B8, NDVI; same-date granules mosaicked; SCL classes 4-7 kept per pixel.
+* **Temporal composite**, crop year 2025-06-01 .. 2026-05-31: per-pixel NDVI median,
+  standard deviation and minimum over 64-78 SCL-clear looks (tile cloud ≤ 60 %).
+  Neighbouring cane fields are cut on different dates, so std and min differ across a
+  boundary even when one image shows two identical green blocks.
+* **NDVI stack**: one int16 band per acquisition date of the crop year (77 dates, tile
+  cloud ≤ 50 %, the same pre-filter as `load_ndvi`), with codes for masked and off-swath
+  pixels. Used to compute per-segment NDVI series locally (below).
+* **ESA WorldCover 2021 (v200)**, for removing built-up and water segments.
+
+### Segmentation variants
+
+1. **SAM on the true-colour scene.** Segment Anything (Meta AI, ViT-B checkpoint
+   `sam_vit_b_01ec64.pth`, Apache 2.0) through samgeo 1.4.2, automatic mask generation,
+   CPU. The image is stretched once for the whole AOI (2-98 %) to 8 bit; samgeo tiles it
+   into 384 px cores with 64 px overlap, each 512 px tile upsampled 2× to SAM's native
+   1024 px (a 2-3 ha field becomes ~30-40 px). Generator settings: 48 points per side,
+   predicted IoU ≥ 0.80, stability ≥ 0.85, minimum region 50 px. samgeo's batch mode writes
+   one binary raster: the union of masks minus each mask's 1 px eroded border. Its connected
+   components are the segments, grown back by 1 px. 72 tiles, 31 min.
+2. **SAM on the NDVI stack**: the same, with NDVI median, std and min as the three
+   channels. 72 tiles, 30 min.
+3. **Classical (Felzenszwalb)**: `skimage.segmentation.felzenszwalb` on the same three
+   NDVI-stack layers, each stretched to 0-1 (2-98 %); scale 100, sigma 0.5, minimum 30 px.
+   25 s. A watershed of the Sobel edge strength (seeds = low-edge interiors) was tried first
+   and under-segmented 27-33 of the 38 reference fields.
+
+**Cleaning (all variants, `clean_segments`).** make_valid (keep polygonal parts) →
+topology-preserving simplify at 5 m → make_valid again → keep 0.5-60 ha → drop segments
+whose WorldCover majority class is built-up (50) or water (80).
+
+### Evaluation and choice
+
+For each of the 38 `fields_v2` polygons: the segment with the largest intersection and its
+IoU; over-segmented if ≥ 2 segments each cover > 20 % of the field; under-segmented if that
+segment is > 1.5× the field.
+
+| variant | segments | median IoU | IoU ≥ 0.5 | over | under | missed |
+|---|---|---|---|---|---|---|
+| SAM, true colour | 5509 | 0.10 | 9/38 | 0 | 25 | 8 |
+| SAM, NDVI stack | 2762 | 0.02 | 2/38 | 0 | 18 | 18 |
+| **Felzenszwalb, NDVI stack (chosen)** | 39542 | **0.58** | **24/38** | 4 | 10 | 0 |
+
+**Path taken: the classical fallback (step 2b).** SAM's output is merged blocks: adjacent
+cane fields with the same colour come out as one mask, and the 1 px borders of the
+binary-union output do not survive where masks overlap. SAM does well on fields that
+contrast with their surroundings (pasture `dudoso` fields 0.54-0.83, p36 0.65), and badly on
+blocks of contiguous cane, which is what matters here. Felzenszwalb on the NDVI history
+separates neighbours cut on different dates. Its three settings (scale 50/100/200) were
+compared on the same 38 fields, so 0.58 is somewhat optimistic.
+
+**SAM is a pretrained foundation model** (Meta AI, Apache 2.0). It was used as-is, with no
+fine-tuning, as an in-product AI component candidate. In this run it is evaluated and **not
+used** for the delivered polygons. The installation, checkpoint and SAM masks stay out of
+git.
+
+### Per-segment features at scale (`zonal.py`)
+
+The per-field extractors loop over polygons: one window read or one Earth Engine request
+each. For ~40 000 segments every source is instead read **once** over the AOI, the
+segments are burnt into a label raster on that product's grid (pixel centre inside), and
+each statistic is a `np.bincount`. The rules are those of the per-field code: GCOV mean in
+linear power over mask-valid, finite, > 0 pixels; valid_px the smaller of the HH and HV
+counts; ENL = mean² / var of linear HV; GUNW coherence mean and minimum over finite pixels;
+NDVI mean over SCL-clear pixels with cloud_pct = 1 − clear / covered. Per-scene results are
+cached (`outputs/segments_ts/`), gathered into `data/features/segments_timeseries.parquet`
+(GCOV, both orbits) and `segments_coherence.parquet`. Fires: one spatial join
+(`fires.fires_per_field_fast`, same output as `fires_per_field`).
+
+**Check.** Run on the 38 `fields_v2` polygons, this path reproduces the exercise 4b/4c
+tables:
+* GCOV: identical on 37 fields; on p5 one pixel moves to p7, because the hand-traced p5
+  and p7 overlap and a label raster gives a shared pixel to one polygon (max 0.05 dB).
+* Coherence: identical.
+* NDVI max/min within 0.006, high-run days and collapse counts identical.
+* Gate: all 38 decisions identical; P(cane) within 0.001.
+
+### Gate and detector over the segments
+
+* Gate: `classify_fields(..., variant="optical")` (B), with `p_cane_radar` (A).
+* Detector: the 4b models refit exactly as in script 10 (26 cane fields, xgboost with the
+  median CV iteration count). Applied to every gated cane segment; the harvest date is the
+  sustained-rule date on xgboost (`harvest_date_logistic` kept as the alternative).
+* Output `data/results/harvest_dates_2025_26.geojson`, one row per segment:
+  * p_cane, p_cane_radar, cane_pred, gate_confidence;
+  * harvest_date, harvest_after (first acquisition seen harvested), method;
+  * hv_drop_db (largest single HV step, gate feature), coh_min (lowest field-mean
+    coherence, gate feature);
+  * fires_7d_before: VIIRS detections ≤ 200 m in the 7 days before `harvest_after`.
+* `confidence` of a date:
+  * high: the gate is sure (P > 0.8) and the radar-only gate agrees (p_cane_radar ≥ 0.5);
+  * low: the gate is unsure and radar disagrees;
+  * medium: otherwise;
+  * none: no sustained detection.
+
+### Limitations of the area-wide run
+
+* The segments are **not fields**. The median cane segment is 1.2 ha against 2.6 ha for the
+  hand-traced fields. Count hectares, not fields.
+* Felzenszwalb over-segments the whole AOI. Hills, scrub and orchards are segmented too and
+  left to the gate.
+* The gate was trained on 38 polygons, mostly cane and pasture next to cane. 2036 segments
+  that WorldCover maps as tree cover are called cane: tall cane is often mapped as trees,
+  but some will be orchards or riparian trees. Untested.
+* The detector's dates are only as good as on the 26 training fields (median error ~3.5 d),
+  and it has never seen segments that mix two fields.
+
 ## References
 
 * Oliver, C. & Quegan, S. (1998; 2004 reprint). *Understanding Synthetic Aperture Radar
@@ -318,3 +445,9 @@ what separates it from cane.
   the GCOV covariance terms instead of HV alone.
 * Huffman, G. J. et al. GPM IMERG Final Precipitation L3 Half Hourly 0.1 x 0.1 degree V07.
   GES DISC.
+* Kirillov, A. et al. (2023). Segment Anything. *Proc. ICCV*, 4015-4026. Code and
+  checkpoints: github.com/facebookresearch/segment-anything (Apache 2.0).
+* Wu, Q. & Osco, L. (2023). samgeo: A Python package for segmenting geospatial data with
+  the Segment Anything Model. *J. Open Source Software* 8(89), 5663.
+* Felzenszwalb, P. F. & Huttenlocher, D. P. (2004). Efficient graph-based image
+  segmentation. *Int. J. Computer Vision* 59(2), 167-181.

@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import ee
 import google.oauth2.credentials
+import numpy as np
 import pandas as pd
 
 from zafra import config
@@ -249,4 +250,250 @@ def rgb_thumb_url(image_id: str, field_geom, pad_m: float = 250, size: int = 400
     rgb = rgb.blend(outline.visualize(palette=["ffff00"]))
     return rgb.getThumbURL(
         {"region": region.buffer(pad_m).bounds(), "dimensions": size, "format": "png"}
+    )
+
+
+# --- area-wide images for field segmentation (exercise 4d) ----------------------------------
+
+UTM_EPSG = 32614
+WORLDCOVER = "ESA/WorldCover/v200"
+# getDownloadURL refuses requests above ~48 MB; 1000 x 1000 px x 5 float32 bands is 20 MB.
+TILE_PX = 1000
+FILL = -9999.0  # masked pixels in transit; NaN in the written GeoTIFF
+# NDVI stack codes (int16): NDVI x 10000 where clear; these two where not.
+STACK_MASKED = -20000  # covered by the scene, but SCL says cloud / shadow / cirrus / ...
+STACK_NODATA = -32768  # not covered by any granule of that date
+
+
+def aoi_grid(bbox_lonlat, scale: float = 10.0) -> dict:
+    """The UTM 14N pixel grid (EPSG:32614) covering a lon/lat bbox, snapped to `scale` m.
+
+    Every export uses this grid (crs_transform + dimensions), so tiles and products line up
+    pixel for pixel. Returns epsg, transform (affine tuple), width, height.
+    """
+    from pyproj import Transformer
+
+    lon0, lat0, lon1, lat1 = bbox_lonlat
+    tr = Transformer.from_crs(4326, UTM_EPSG, always_xy=True)
+    xs, ys = tr.transform([lon0, lon0, lon1, lon1], [lat0, lat1, lat0, lat1])
+    x0 = np.floor(min(xs) / scale) * scale
+    y1 = np.ceil(max(ys) / scale) * scale
+    w = int(np.ceil((max(xs) - x0) / scale))
+    h = int(np.ceil((y1 - min(ys)) / scale))
+    return {
+        "epsg": UTM_EPSG,
+        "transform": (scale, 0.0, x0, 0.0, -scale, y1),
+        "width": w,
+        "height": h,
+    }
+
+
+def _clear_mask(img: ee.Image) -> ee.Image:
+    return img.select("SCL").remap(list(SCL_KEEP), [1] * len(SCL_KEEP), 0).eq(1).rename("clear")
+
+
+def _region(grid: dict) -> ee.Geometry:
+    s, _, x0, _, _, y1 = grid["transform"]
+    x1, y0 = x0 + s * grid["width"], y1 - s * grid["height"]
+    return ee.Geometry.Rectangle([x0, y0, x1, y1], f"EPSG:{grid['epsg']}", False)
+
+
+def scene_clear_fractions(grid: dict, start: str, end: str, max_cloud: float = 40):
+    """Per acquisition date: share of the AOI that is covered and SCL-clear.
+
+    Granules of the same date (adjacent MGRS tiles of one pass) are mosaicked first. The
+    share is computed at 100 m, which is plenty for ranking dates.
+    """
+    init_ee()
+    region = _region(grid)
+    coll = (
+        ee.ImageCollection(S2_COLLECTION)
+        .filterBounds(region)
+        .filterDate(start, end)
+        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", max_cloud))
+    )
+    days = coll.aggregate_array("system:time_start").getInfo()
+    days = sorted({pd.Timestamp(t, unit="ms").normalize() for t in days})
+    rows = []
+    for d in days:
+        mos = coll.filterDate(
+            d.strftime("%Y-%m-%d"), (d + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        )
+        clear = _clear_mask(mos.mosaic()).unmask(0)
+        frac = clear.reduceRegion(ee.Reducer.mean(), region, scale=100, crs=f"EPSG:{grid['epsg']}")
+        ids = mos.aggregate_array("system:index")
+        rows.append({"date": d, "clear_frac": frac.get("clear"), "image_ids": ids})
+    info = ee.List([ee.Dictionary(r | {"date": r["date"].isoformat()}) for r in rows]).getInfo()
+    df = pd.DataFrame(info)
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values("clear_frac", ascending=False, ignore_index=True)
+
+
+def scene_image(date, grid: dict) -> ee.Image:
+    """One date's mosaic: B4, B3, B2, B8 (reflectance 0-1) and NDVI, SCL-masked per pixel."""
+    d = pd.Timestamp(date)
+    mos = (
+        ee.ImageCollection(S2_COLLECTION)
+        .filterBounds(_region(grid))
+        .filterDate(d.strftime("%Y-%m-%d"), (d + pd.Timedelta(days=1)).strftime("%Y-%m-%d"))
+        .mosaic()
+    )
+    refl = mos.select(["B4", "B3", "B2", "B8"]).divide(10000)
+    ndvi = mos.normalizedDifference(["B8", "B4"]).rename("NDVI")
+    return refl.addBands(ndvi).updateMask(_clear_mask(mos)).toFloat()
+
+
+def temporal_composite(grid: dict, start: str, end: str, max_cloud: float = 60) -> ee.Image:
+    """Per-pixel NDVI median, standard deviation and minimum over every SCL-clear look.
+
+    Neighbouring cane fields are cut on different dates, so their NDVI histories differ even
+    when they look alike on any one day: std and min separate them. Also returns n_clear.
+    """
+    init_ee()
+    coll = (
+        ee.ImageCollection(S2_COLLECTION)
+        .filterBounds(_region(grid))
+        .filterDate(start, end)
+        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", max_cloud))
+        .map(
+            lambda im: (
+                im.normalizedDifference(["B8", "B4"]).rename("ndvi").updateMask(_clear_mask(im))
+            )
+        )
+    )
+    red = (
+        ee.Reducer.median()
+        .combine(ee.Reducer.stdDev(), sharedInputs=True)
+        .combine(ee.Reducer.min(), sharedInputs=True)
+        .combine(ee.Reducer.count(), sharedInputs=True)
+    )
+    out = coll.reduce(red)
+    return out.select(
+        ["ndvi_median", "ndvi_stdDev", "ndvi_min", "ndvi_count"],
+        ["ndvi_median", "ndvi_std", "ndvi_min", "n_clear"],
+    ).toFloat()
+
+
+def worldcover_image() -> ee.Image:
+    """ESA WorldCover 2021 (v200) land-cover class, 10 m (50 = built-up, 80 = water)."""
+    init_ee()
+    return ee.ImageCollection(WORLDCOVER).first().select("Map").toFloat()
+
+
+def download_tiled(
+    img: ee.Image, grid: dict, out_path, tile_px: int = TILE_PX, workers: int = 4, dtype="float32"
+):
+    """Download `img` on `grid` as one GeoTIFF, via getDownloadURL in tile_px x tile_px tiles.
+
+    Each tile is requested with an explicit crs_transform + dimensions, so tiles abut exactly
+    and are pasted into one array (no resampling). float32: masked pixels become NaN.
+    int16: the image must carry its own no-data codes (ndvi_stack_image). Band names are
+    written as band descriptions.
+    """
+    import io
+    import zipfile
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    import rasterio
+    import requests
+    from affine import Affine
+
+    init_ee()
+    bands = img.bandNames().getInfo()
+    s, _, x0, _, _, y1 = grid["transform"]
+    W, H = grid["width"], grid["height"]
+    is_float = np.dtype(dtype).kind == "f"
+    out = np.full((len(bands), H, W), np.nan if is_float else STACK_NODATA, dtype=dtype)
+    jobs = [(r, c) for r in range(0, H, tile_px) for c in range(0, W, tile_px)]
+
+    def fetch(rc):
+        r, c = rc
+        h, w = min(tile_px, H - r), min(tile_px, W - c)
+        url = img.unmask(FILL, sameFootprint=False).getDownloadURL(
+            {
+                "crs": f"EPSG:{grid['epsg']}",
+                "crs_transform": [s, 0, x0 + c * s, 0, -s, y1 - r * s],
+                "dimensions": f"{w}x{h}",
+                "format": "GEO_TIFF",
+            }
+        )
+        resp = requests.get(url, timeout=600)
+        resp.raise_for_status()
+        data = resp.content
+        if data[:2] == b"PK":  # some endpoints still zip the GeoTIFF
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                data = z.read(z.namelist()[0])
+        with rasterio.MemoryFile(data) as mf, mf.open() as ds:
+            arr = ds.read().astype(dtype)
+        if is_float:
+            arr[arr == FILL] = np.nan  # NaN cannot travel in the request JSON, so a sentinel does
+        return r, c, arr
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for r, c, arr in ex.map(fetch, jobs):
+            out[:, r : r + arr.shape[1], c : c + arr.shape[2]] = arr
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    profile = {
+        "driver": "GTiff",
+        "dtype": dtype,
+        "count": len(bands),
+        "width": W,
+        "height": H,
+        "crs": f"EPSG:{grid['epsg']}",
+        "transform": Affine(*grid["transform"]),
+        "nodata": np.nan if is_float else STACK_NODATA,
+        "compress": "deflate",
+        "predictor": 3 if is_float else 2,
+        "tiled": True,
+    }
+    with rasterio.open(out_path, "w", **profile) as dst:
+        dst.write(out)
+        for i, b in enumerate(bands, 1):
+            dst.set_band_description(i, b)
+    return out_path, len(jobs)
+
+
+def ndvi_stack_image(grid: dict, start: str, end: str, max_cloud: float = 50):
+    """One int16 band per acquisition date: NDVI x 10000 on SCL-clear pixels, STACK_MASKED
+    on covered but masked pixels, STACK_NODATA off-swath.
+
+    Same scene pre-filter (tile CLOUDY_PIXEL_PERCENTAGE <= max_cloud) and pixel mask as
+    s2_ndvi_series, but for every pixel of the AOI at once, so per-field series can be
+    computed locally for any number of polygons. Granules of one date are mosaicked.
+    Returns (image, dates, tile_cloud) where band i is dates[i] ("d_YYYYMMDD").
+    """
+    init_ee()
+    region = _region(grid)
+    coll = (
+        ee.ImageCollection(S2_COLLECTION)
+        .filterBounds(region)
+        .filterDate(start, end)
+        .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", max_cloud))
+    )
+    info = coll.aggregate_array("system:time_start").getInfo()
+    clouds = coll.aggregate_array("CLOUDY_PIXEL_PERCENTAGE").getInfo()
+    days = pd.Series(clouds, index=[pd.Timestamp(t, unit="ms").normalize() for t in info])
+    tile_cloud = days.groupby(level=0).mean().sort_index()
+    bands = []
+    for d in tile_cloud.index:
+        mos = coll.filterDate(
+            d.strftime("%Y-%m-%d"), (d + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        )
+        m = mos.mosaic()
+        ndvi = m.normalizedDifference(["B8", "B4"]).multiply(10000).round()
+        covered = m.select("SCL").neq(0)
+        code = (
+            ee.Image(STACK_NODATA)
+            .where(covered, STACK_MASKED)
+            .where(covered.And(_clear_mask(m)), ndvi)
+            .unmask(STACK_NODATA)
+        )
+        bands.append(code.toInt16().rename(f"d_{d:%Y%m%d}"))
+    return (
+        ee.ImageCollection(bands).toBands().rename([f"d_{d:%Y%m%d}" for d in tile_cloud.index]),
+        list(tile_cloud.index),
+        tile_cloud,
     )

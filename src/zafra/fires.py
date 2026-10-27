@@ -143,3 +143,23 @@ def load_fire_table(path) -> pd.DataFrame:
     df["acq_utc"] = pd.to_datetime(df["acq_utc"], utc=True)
     df["acq_local"] = df["acq_utc"].dt.tz_convert(LOCAL_TZ)
     return df
+
+
+def fires_per_field_fast(fires: gpd.GeoDataFrame, fields: gpd.GeoDataFrame, buffer_m: float):
+    """fires_per_field for many polygons: one spatial join instead of a loop over fields.
+
+    Same output columns and the same distances (to the centroid and to the polygon edge, in
+    the metric CRS); only detections within `buffer_m` of a polygon are returned.
+    """
+    pts = fires.to_crs(METRIC_CRS)
+    f = fields[["id", "geometry"]].to_crs(METRIC_CRS).reset_index(drop=True)
+    buf = f.assign(geometry=f.geometry.buffer(buffer_m))
+    j = gpd.sjoin(pts, buf, predicate="within", how="inner")
+    if j.empty:
+        return pd.DataFrame(columns=FIELD_TABLE_COLUMNS)
+    poly = gpd.GeoSeries(f.geometry.loc[j["index_right"]].to_numpy(), index=j.index, crs=METRIC_CRS)
+    j["distance_m"] = j.geometry.distance(poly.centroid).round(0)
+    j["dist_edge_m"] = j.geometry.distance(poly).round(0)
+    j = j.rename(columns={"id": "field_id"})
+    out = pd.DataFrame(j.drop(columns="geometry")).reindex(columns=FIELD_TABLE_COLUMNS)
+    return out.sort_values(["field_id", "acq_utc"], ignore_index=True)

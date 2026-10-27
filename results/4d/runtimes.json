@@ -1,0 +1,31 @@
+{
+  "step2_sam_rgb": {
+    "seconds": 1887.8,
+    "tiles": 72,
+    "device": "cpu",
+    "model": "vit_b",
+    "sam_kwargs": {
+      "points_per_side": 48,
+      "points_per_batch": 64,
+      "pred_iou_thresh": 0.8,
+      "stability_score_thresh": 0.85,
+      "min_mask_region_area": 50
+    }
+  },
+  "step2_sam_temporal": {
+    "seconds": 1800.9,
+    "tiles": 72,
+    "device": "cpu",
+    "model": "vit_b",
+    "sam_kwargs": {
+      "points_per_side": 48,
+      "points_per_batch": 64,
+      "pred_iou_thresh": 0.8,
+      "stability_score_thresh": 0.85,
+      "min_mask_region_area": 50
+    }
+  },
+  "step2b_classic": {
+    "seconds": 24.6
+  }
+}

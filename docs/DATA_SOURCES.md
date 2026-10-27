@@ -125,11 +125,36 @@ confirm against the provider pages.
   `COPERNICUS/S2_SR_HARMONIZED`.
 - **Resolution / cadence:** 10-20 m pixels, about 5-day revisit.
 - **Access:** Earth Engine Python API. Used for visual checks (NDVI drop after harvest,
-  dark burn scars) and to draw field boundaries into `data/fields/`.
+  dark burn scars), per-field NDVI series (`optical.s2_ndvi_series`), and to draw field
+  boundaries into `data/fields/`.
+- **Area-wide exports (exercise 4d, `scripts/12_s2_images.py`):** over the FIRMS bbox
+  (lon −99.35..−99.05, lat 18.50..18.75) on a 10 m EPSG:32614 grid of 3168 × 2771 px, via
+  `ee.Image.getDownloadURL` in 1000 × 1000 px tiles (400 × 400 for the 77-band stack; one
+  request is capped at ~48 MB), each on an explicit `crs_transform`, into `data/s2/`
+  (git-ignored):
+  - the clearest scene of Dec 2025-Jan 2026 (2026-01-10): B4, B3, B2, B8, NDVI;
+  - the crop-year 2025/26 NDVI median, std, min and clear-look count;
+  - a 77-date NDVI stack (int16).
+  All use the SCL mask per pixel (classes 4-7 kept). Same-date granules are mosaicked.
 - **Licence / citation:** "Contains modified Copernicus Sentinel data [year]".
 - **Caveats:** Clouds are a problem in the rainy season, though the zafra (Nov-May) is mostly
   dry. Use the SCL band or Cloud Score+ to mask clouds. The harmonised collection removes the
   2022 processing-baseline offset.
+
+## ESA WorldCover 2021 (land cover)
+
+- **What:** ESA WorldCover 10 m global land cover, version 200 (2021), 11 classes from
+  Sentinel-1 and Sentinel-2. Earth Engine collection `ESA/WorldCover/v200`, band `Map`.
+- **Resolution / cadence:** 10 m, a single map for 2021.
+- **Access:** Earth Engine Python API (`optical.worldcover_image`), exported with the
+  Sentinel-2 rasters to `data/s2/worldcover_2021.tif`.
+- **Use in this project:** exercise 4d only. Segments whose majority class is built-up (50)
+  or permanent water (80) are dropped. Also used to describe the gate's cane calls by land
+  cover; it is not an input to any model.
+- **Licence / citation:** CC BY 4.0. Zanaga, D. et al. (2022). *ESA WorldCover 10 m 2021
+  v200*. doi:10.5281/zenodo.7254221.
+- **Caveats:** 2021, not the 2025/26 season. Its stated overall accuracy is ~77 %; tall cane
+  is often mapped as tree cover or cropland.
 
 ## GPM IMERG (precipitation)
 
@@ -155,3 +180,7 @@ confirm against the provider pages.
   title and week.
 - **Caveats:** Totals are per mill and cannot validate individual fields, only the shape of
   the season (start, peak, end). Report formats change between seasons.
+- **Cane area (TODO, author):** no figure for the Ingenio Emiliano Zapata supply area or for
+  Morelos is recorded here yet. Exercise 4d's area-wide gate gives 9 943 ha of cane-like
+  segments in the FIRMS bbox for 2025/26 (`docs/VALIDATION.md`). Add the CONADESUCA
+  harvested-area figure for zafra 2025/26 (report title and week) to compare.

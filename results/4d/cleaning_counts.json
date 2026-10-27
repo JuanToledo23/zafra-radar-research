@@ -1,0 +1,26 @@
+{
+  "sam_rgb": {
+    "raw": 10824,
+    "after_fix": 10824,
+    "too_small": 5088,
+    "too_large": 45,
+    "worldcover_dropped": 182,
+    "kept": 5509
+  },
+  "sam_temporal": {
+    "raw": 5584,
+    "after_fix": 5584,
+    "too_small": 2641,
+    "too_large": 31,
+    "worldcover_dropped": 150,
+    "kept": 2762
+  },
+  "classic": {
+    "raw": 57444,
+    "after_fix": 57444,
+    "too_small": 13846,
+    "too_large": 19,
+    "worldcover_dropped": 4037,
+    "kept": 39542
+  }
+}

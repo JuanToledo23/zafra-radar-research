@@ -1,0 +1,4 @@
+variant,n_segments,n_fields,median_iou,mean_iou,share_iou_ge_0_5,n_iou_ge_0_5,over_segmented,under_segmented,missed
+sam_rgb,5509,38,0.097,0.225,0.237,9,0,25,8
+sam_temporal,2762,38,0.016,0.110,0.053,2,0,18,18
+classic,39542,38,0.582,0.582,0.632,24,4,10,0

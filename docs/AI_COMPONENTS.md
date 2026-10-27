@@ -2,13 +2,14 @@
 
 These are the AI components that run inside Zafra Radar (not the AI used to build it;
 see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier (exercise 4b) and the
-cane / non-cane gate (exercise 4c) are implemented; the other two are not.
+cane / non-cane gate (exercise 4c) are implemented. Field segmentation (exercise 4d) was
+tried with SAM and runs with a classical method instead. The LLM summary is not built.
 
 | # | Component | Status | Exercise |
 |---|---|---|---|
 | 1 | Harvest classifier (dates harvest on known cane fields) | Implemented, evaluated | 4b |
 | 1b | Cane / non-cane gate (decides which fields the classifier runs on) | Implemented, evaluated | 4c |
-| 2 | Field segmentation | Stretch goal | 7 |
+| 2 | Field segmentation | SAM evaluated, not used; classical method delivered | 4d |
 | 3 | Per-field LLM summary | Built during the hackathon | - |
 
 ---
@@ -151,33 +152,52 @@ would only memorize.
 
 ---
 
-## 2. Field segmentation (stretch)
+## 2. Field segmentation
 
-**Purpose.** Produce sugarcane field boundaries automatically, so the pipeline can scale
-beyond the hand-drawn demo fields.
+**Status (2026-10-26).** Exercise 4d. Code in `src/zafra/segments.py`, drivers
+`scripts/12_s2_images.py` and `scripts/13_field_segmentation.py`. Results in
+`results/4d/segmentation.md` and `docs/VALIDATION.md`.
 
-**Inputs.** Sentinel-2 L2A cloud-free images of the demo area (RGB and NIR, 10 m), from
-dates when neighbouring fields look different (mid-zafra). Optionally, prompt points or boxes
-placed by hand.
+**Purpose.** Candidate field polygons for the whole supply area (AOI = the FIRMS bbox), so
+the gate and the harvest classifier can run beyond the hand-traced fields.
 
-**Outputs.** Field polygons (GeoPackage in `data/fields/`) with an area and a confidence
-score.
+**The AI component: Segment Anything (SAM).**
+- A **pretrained foundation model** from Meta AI (Kirillov et al. 2023), ViT-B checkpoint,
+  **Apache 2.0** licence. Run through samgeo 1.4.2, on CPU.
+- Not trained or fine-tuned here. In automatic mode it is prompted with a 48 × 48 point
+  grid per tile and returns object masks.
+- Run on two inputs, each in 72 overlapping tiles of the 10 m Sentinel-2 AOI (~30 min per
+  input):
+  - the clearest Dec-Jan true-colour scene;
+  - a 3-band image of the crop-year NDVI median, std and min.
 
-**Candidate approach.** A pretrained Segment Anything Model (SAM) in automatic-mask mode,
-with filters on area and shape. If SAM is too slow or too heavy on a laptop, use a smaller
-model or classic methods (edge detection + watershed). Needs the
-`segmentation` optional dependencies (torch, segment-anything).
+**Evaluation.** IoU against the 38 hand-traced `fields_v2` polygons:
 
-**Evaluation.** Intersection over Union (IoU) between predicted and hand-drawn polygons, per
-field and as a mean. Also count missed fields and fields wrongly merged or split.
+| variant | median IoU | IoU ≥ 0.5 | under-segmented | missed |
+|---|---|---|---|---|
+| SAM, true colour | 0.10 | 9/38 | 25 | 8 |
+| SAM, NDVI stack | 0.02 | 2/38 | 18 | 18 |
+| Felzenszwalb (classical), NDVI stack | **0.58** | **24/38** | 10 | 0 |
 
-**Risks.**
-- At 10 m resolution, smallholder plots can be only a few pixels wide.
-- Neighbouring fields at the same growth stage look identical, so boundaries disappear.
-- SAM was trained on natural photos, not satellite imagery.
-- Runtime and model download size.
+**Decision: SAM is not used for the delivered polygons.**
+- It merges blocks of contiguous cane fields into single masks.
+- It does well only on fields that contrast with their surroundings (pasture fields,
+  IoU 0.54-0.83).
+- The product uses the classical Felzenszwalb segmentation of the NDVI history instead.
+  That is a deterministic algorithm, not an AI model.
+- SAM stays in the code (`segments.run_sam`) so it can be re-run, for example with a
+  fine-tuned checkpoint or prompted with points.
 
-It is a stretch goal: the hand-drawn polygons remain the fallback.
+**Limits, stated plainly.**
+- The delivered segments fragment fields: the median cane segment is 1.2 ha against 2.6 ha
+  hand-traced. Only 24 of 38 reference fields are matched with IoU ≥ 0.5.
+- The Felzenszwalb setting was chosen on the same 38 fields.
+- SAM was trained on photos, and at 10 m a cane field is 15-20 pixels wide. Its failure
+  here says nothing about SAM on sub-metre imagery.
+
+**Risks (from the plan, confirmed).** At 10 m smallholder plots are a few pixels wide.
+Neighbouring fields in the same growth stage look identical in one image. The temporal
+stack is what separates them, and SAM did not use it well either.
 
 ---
 

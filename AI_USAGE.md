@@ -65,15 +65,23 @@ Design details for each component: `docs/AI_COMPONENTS.md`.
   from the 38 fields (orchards, towns). The radar check misses cane with a weak radar cut,
   including the one grower-confirmed field (p36).
 
-### 2. Field segmentation: **stretch goal** (exercise 7)
+### 2. Field segmentation: **SAM evaluated, not used** (exercise 4d)
 
-- **What it does:** Draws sugarcane field boundaries automatically from Sentinel-2 imagery,
-  so they don't have to be digitised by hand.
-- **Model / data:** A pretrained Segment Anything Model (SAM) or a lightweight segmentation
-  model, run on Sentinel-2 L2A images of the demo area. It will be scored against
-  hand-drawn polygons.
-- **What it is NOT:** It does not identify the crop and does not detect harvest. If it falls
-  short, the hand-drawn polygons are used instead.
+- **What it does:** Draws candidate field polygons over the whole supply area from
+  Sentinel-2, so the gate and the harvest classifier can run area-wide.
+- **Model / data:**
+  - Segment Anything (SAM), a **pretrained foundation model** from Meta AI.
+  - ViT-B checkpoint, Apache 2.0 licence, through samgeo.
+  - Used as-is, with no training or fine-tuning.
+  - Run on a 10 m true-colour scene and on an NDVI-history composite of the area.
+- **How good it is:**
+  - SAM matched 9 (true colour) and 2 (NDVI composite) of the 38 hand-traced fields with
+    IoU ≥ 0.5. It merges neighbouring cane fields into blocks.
+  - A classical, non-AI segmentation (Felzenszwalb on the NDVI history) matched 24 of 38,
+    median IoU 0.58.
+  - **The delivered polygons come from the classical method.**
+- **What it is NOT:** It does not identify the crop or detect harvest. The delivered
+  segments are fragments of fields, not cadastral fields.
 
 ### 3. Per-field natural-language summary: **planned** (built during the hackathon)
 
@@ -116,3 +124,20 @@ Append one line per session: date, what the AI helped with, what was changed or 
     wrong sign and depends on one field.
   - Reported as measured, not fixed: the "largest HV drop" feature often lands on the
     late-April storms rather than the cut.
+- 2026-10-26: Exercise 4d. Claude Code wrote the Sentinel-2 / WorldCover tiled export
+  (`optical.py`), the segmentation module (`segments.py`), the vectorized per-segment
+  statistics (`zonal.py`, `fires.fires_per_field_fast`), the area-wide plots (`plots.py`),
+  drivers 12-14, tests and the doc updates, following the author's written brief.
+  - SAM (ViT-B) was run as asked on both inputs. It produced merged blocks, so the
+    fallback of the brief (classical segmentation) is the delivered method.
+  - A watershed was tried first for the fallback and replaced by Felzenszwalb after it
+    under-segmented most fields. Three Felzenszwalb settings were compared on the same 38
+    fields; this is disclosed as optimistic.
+  - It added a per-date NDVI stack download and the bincount zonal path, because
+    per-polygon Earth Engine calls would not scale to ~40 000 segments. That path was
+    checked against the 38-field tables of 4b/4c before use.
+  - It defined the date `confidence` tiers (gate certainty × radar agreement); the brief
+    did not specify them.
+  - Reported as measured, not fixed: the early-December detection spike, the fire peak in
+    April without matching detections, cane calls on WorldCover tree cover, and the
+    missing official cane-area figure (TODO).

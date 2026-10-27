@@ -27,13 +27,16 @@ dependencies = [
     "scikit-learn",
     "xgboost",
     "joblib",
+    "scikit-image",
+    "rasterstats",
 ]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest"]
-# Exercise 7 (automatic field segmentation, stretch goal). Not installed by `make setup`;
-# install when starting that exercise: pip install -e ".[segmentation]"
-segmentation = ["torch", "segment-anything"]
+# Exercise 4d, SAM variant only (the delivered classical segmentation needs none of this).
+# Not installed by `make setup`: pip install -e ".[segmentation]". The ViT-B checkpoint
+# (375 MB) is downloaded on first use into data/models/sam/ (git-ignored).
+segmentation = ["torch", "segment-anything", "segment-geospatial"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

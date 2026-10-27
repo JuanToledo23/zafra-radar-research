@@ -24,7 +24,7 @@ Design details for each component: `docs/AI_COMPONENTS.md`.
 
 - **What it does:** For a field already known to be sugarcane, classifies each NISAR
   acquisition as standing or harvested and gives an estimated harvest date. Deciding
-  whether a field is cane is a separate upstream step (next exercise). It is reported
+  whether a field is cane is a separate upstream step (the cane gate, exercise 4c). It is reported
   next to the rule-based and ratio-test detectors (exercise 4), on the same fields.
 - **Trained on:** Per-acquisition features from NISAR GCOV HV/HH (ascending and descending),
   NISAR GUNW coherence and FIRMS VIIRS fires. GPM IMERG rain is computed but not used: it
@@ -41,6 +41,29 @@ Design details for each component: `docs/AI_COMPONENTS.md`.
   field is cane or was harvested: it fires on 10-11 of the 11 non-cane control fields. It is only
   tested on one season in one area. It does not detect burning; fires come from FIRMS.
   Details and failure cases: `docs/AI_COMPONENTS.md`, `docs/VALIDATION.md`.
+
+### 1b. Cane / non-cane gate: **implemented and evaluated** (exercise 4c)
+
+- **What it does:** For any field polygon and zafra, gives P(sugarcane), so the harvest
+  classifier only runs on cane. The output is `p_cane`, a yes/no at 0.5, a confidence
+  tier, and `p_cane_radar` (the radar-only probability, for the map).
+- **Trained on:** One row per field.
+  - The operational gate uses Sentinel-2 NDVI phenology.
+  - A radar-only model (NISAR HV/HH statistics, largest HV drop, pre-season HV level, GUNW
+    coherence) is always reported next to it as independent evidence.
+  - **38 training rows** (26 cane, 12 non-cane) in Morelos, zafra 2025-26.
+  - Labels come from NDVI phenology and visual tracing, not field visits.
+  - Logistic regression, trained here from scratch.
+- **How good it is:** Leave-one-field-out:
+  - Optical gate: 37/38 correct, no cane field dropped. This is partly circular: the labels
+    come from NDVI.
+  - Radar only: 34/38 correct, 23/26 cane fields found, 1 false positive (probably cane in
+    fact). It drops the one grower-confirmed field, which is why it is not the gate.
+  - As a gate, it cuts the harvest detectors' false alarms on the 12 non-cane fields to 1.
+- **What it is NOT:** It is not validated against field visits. The NDVI variants are
+  partly circular because the labels come from NDVI. It is untested on land covers absent
+  from the 38 fields (orchards, towns). The radar check misses cane with a weak radar cut,
+  including the one grower-confirmed field (p36).
 
 ### 2. Field segmentation: **stretch goal** (exercise 7)
 
@@ -81,3 +104,15 @@ Append one line per session: date, what the AI helped with, what was changed or 
   reported as measured. After review, at the author's request: the ratio test was also run
   on both orbits; rain, gap_days, sharpness and slope were dropped from the model; and the
   scope (dates harvest on known cane fields only) was stated in the docs.
+- 2026-10-26: Exercise 4c. Claude Code wrote the per-field cane features
+  (`src/zafra/cane_features.py`, plus `optical.s2_bare_share`), the gate
+  (`src/zafra/detect/cane_gate.py`), the driver (`scripts/11_cane_gate.py`), tests and the
+  doc updates, following the author's written brief.
+  - It added an extra "radar + fire" variant.
+  - It first proposed radar-only (A) as the default. After review, the author chose optical
+    (B) as the operational gate, because A drops p36, the only grower-confirmed field. A is
+    always returned as `p_cane_radar`.
+  - A+F scored one field more than A but was not adopted: the fire coefficient has the
+    wrong sign and depends on one field.
+  - Reported as measured, not fixed: the "largest HV drop" feature often lands on the
+    late-April storms rather than the cut.

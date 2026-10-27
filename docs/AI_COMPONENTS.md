@@ -1,12 +1,13 @@
 # In-product AI components: design notes
 
-These are the three AI components that run inside Zafra Radar (not the AI used to build it;
-see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier is implemented
-(exercise 4b); the other two are not.
+These are the AI components that run inside Zafra Radar (not the AI used to build it;
+see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier (exercise 4b) and the
+cane / non-cane gate (exercise 4c) are implemented; the other two are not.
 
 | # | Component | Status | Exercise |
 |---|---|---|---|
 | 1 | Harvest classifier (dates harvest on known cane fields) | Implemented, evaluated | 4b |
+| 1b | Cane / non-cane gate (decides which fields the classifier runs on) | Implemented, evaluated | 4c |
 | 2 | Field segmentation | Stretch goal | 7 |
 | 3 | Per-field LLM summary | Built during the hackathon | - |
 
@@ -22,7 +23,7 @@ see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier is implement
 rule and ratio-test detectors, not instead of them.
 
 **Scope.** It dates the harvest on fields already known to be sugarcane. Deciding whether a
-field is cane is a separate upstream step, the next exercise; the classifier does not do it.
+field is cane is a separate upstream step, the cane gate of exercise 4c; the classifier does not do it.
 The false-alarm counts below show why that step is needed.
 
 **What it does.** Classifies each NISAR acquisition of a field as standing (0) or harvested
@@ -83,6 +84,70 @@ Results on these fields:
 
 **Risks (from the plan, still open).** Few labels, label noise, domain shift (region,
 season, NISAR calibration). Leakage is handled: features are causal and folds split fields.
+
+---
+
+## 1b. Cane / non-cane gate
+
+**Status (2026-10-26).** Implemented in `src/zafra/detect/cane_gate.py`, features in
+`src/zafra/cane_features.py`, driver `scripts/11_cane_gate.py`. Results in
+`results/4c/comparison.md` and `docs/VALIDATION.md`. A second trained model inside the
+product, upstream of the harvest classifier.
+
+**Purpose.** For each polygon and zafra, P(the field is sugarcane). The harvest classifier
+then runs only where the gate says cane. Without it, the classifier fires on 11-12 of the
+12 non-cane control fields.
+
+**Inputs.** One row per field and zafra.
+- **Operational gate, variant B (optical):** Sentinel-2 NDVI phenology over the crop year
+  (peak, minimum, longest green plateau, days green, collapses and their season) and the
+  share of bare pixels after the collapse.
+- **Independent check, variant A (radar only), always returned as `p_cane_radar`:**
+  - HV/HH variability and range, HV − HH ratio;
+  - the largest single HV drop and the pre-season HV level;
+  - GUNW coherence minimum, mean and range;
+  - whether the HV drop and the coherence minimum coincide;
+  - the median ENL.
+- Also evaluated: C (all inputs plus VIIRS fire; not recommended, no gain over B and it
+  drops p8) and A+F (radar + fire).
+
+**Why B is the operational gate despite the circularity.** The product cannot drop p36, the
+only grower-confirmed field. A drops it (and p2a, p16); B drops no cane field.
+- Optical selects the fields, radar dates the harvest.
+- A is the evidence that L-band alone separates cane here (89 % leave-one-field-out).
+- A is shown next to B on the map.
+
+**Training data.** 38 polygons in Morelos, one zafra (2025-26): 26 `cana`, 12 others
+(11 `dudoso`, 1 `no_cana`). One row per field, so the training set has **38 rows**. The
+labels come from NDVI phenology plus visual tracing (script 07), not from field visits. That
+is why the optical variants are partly circular, and why the radar-only variant is always
+reported next to the operational optical gate.
+
+**Model.** Logistic regression (standardized, class-balanced, median-imputed with missing
+indicators), the same pipeline as the harvest classifier. No tree model: with 38 rows it
+would only memorize.
+
+**Evaluation.** Leave-one-field-out:
+- Optical only (operational): 37/38, all 26 cane fields kept, 1 false positive (p5, a
+  `dudoso` field that is probably cane). This is partly circular.
+- Radar only (independent check): 34/38, cane recall 23/26, same false positive.
+- Combined: 36/38. The NDVI labelling rule: 38/38 by construction.
+- As a gate in front of the 4b detectors, every variant cuts the non-cane false alarms
+  from 2-12 of 12 to 1 of 12 (p5).
+
+**Limits, stated plainly.**
+- 38 training rows, one zafra, one area, provisional NISAR calibration. Differences of 1-2
+  fields between variants are noise.
+- The reference labels are optical, so even the radar-only score is a measure of agreement
+  with NDVI, not with the ground.
+- The operational gate's score is agreement with its own labelling rule.
+- The radar check drops 3 of 26 cane fields, including p36, the only field with a
+  grower-confirmed harvest. p36, n02 and n09 (La Marometa) show clear NDVI cuts with weak
+  radar response; the cause is not known yet.
+- Optical misses cuts of cane that was already dry (neighbour n03), which the radar sees.
+- Negatives are mostly pasture/scrub polygons traced next to cane. Orchards, towns and
+  irrigated vegetables are not in the training set, so P for them is untested.
+- Radar exists only for the 2025-26 zafra. For other zafras `p_cane_radar` is NaN.
 
 ---
 

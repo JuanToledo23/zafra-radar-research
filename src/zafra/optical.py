@@ -177,6 +177,29 @@ def s2_ndvi_series(field_geom, start: str, end: str, max_cloud: float = 30) -> p
     return df[cols]
 
 
+def s2_bare_share(field_geom, image_id: str, low: float = 0.35) -> float:
+    """Share of a field's clear 10 m pixels with NDVI <= `low` in one S2 L2A image.
+
+    Same pixel rule as s2_ndvi_series (SCL classes SCL_KEEP, centre inside the polygon,
+    unweighted). A cane cut clears the whole field at once, so the scene after it is mostly
+    bare; a pasture browning out or a partial cut leaves a mix. NaN if no pixel is clear.
+    """
+    init_ee()
+    region = _to_ee_geometry(field_geom)
+    img = ee.Image(f"{S2_COLLECTION}/{image_id}")
+    clear = img.select("SCL").remap(list(SCL_KEEP), [1] * len(SCL_KEEP), 0).eq(1)
+    bare = img.normalizedDifference(["B8", "B4"]).lte(low).rename("bare").updateMask(clear)
+    stats = bare.reduceRegion(
+        reducer=ee.Reducer.mean().unweighted(),
+        geometry=region,
+        crs=img.select("B4").projection(),
+        scale=10,
+        maxPixels=1e8,
+    ).getInfo()
+    v = stats.get("bare")
+    return float("nan") if v is None else float(v)
+
+
 def clearest_before_after(
     series: pd.DataFrame,
     window_start,

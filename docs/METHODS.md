@@ -108,7 +108,7 @@ Code: `src/zafra/features.py`, `src/zafra/detect/model.py`, driver
 `results/4b/comparison.md`, `docs/VALIDATION.md`.
 
 **Scope.** This detector dates the harvest on fields already known to be sugarcane. Deciding
-whether a field is cane is a separate upstream step, the next exercise. On non-cane fields
+whether a field is cane is a separate upstream step: the cane gate of exercise 4c. On non-cane fields
 the detector fires almost every time; the false-alarm table in `docs/VALIDATION.md` is the
 evidence for why that step is needed.
 
@@ -199,6 +199,111 @@ NDVI hypothesis is cane, so it is reported apart.
   somewhat optimistic.
 * **Labels are NDVI windows** of 2-10 days, and drying cane lowers NDVI before the cut.
   The reference is itself uncertain by a few days.
+
+## Field selection (cane gate, exercise 4c)
+
+Code: `src/zafra/cane_features.py`, `src/zafra/detect/cane_gate.py`, driver
+`scripts/11_cane_gate.py`, tests `tests/test_cane_gate.py`. Results:
+`results/4c/comparison.md`, `docs/VALIDATION.md`.
+
+**Purpose.** The 4b detector fires on almost every non-cane field. The gate runs first: for
+each polygon and zafra it gives P(sugarcane), and the detector only runs where the gate
+says cane. Public API: `cane_gate.classify_fields(gdf, zafra, variant="optical")` returns the polygons with
+`p_cane`, `cane_pred` (P ≥ 0.5) and `confidence` ("high" if P < 0.2 or > 0.8, "uncertain"
+otherwise, "no_data" if the zafra has no data for the variant), plus `p_cane_radar`, the
+radar-only probability, always.
+
+### The circularity caveat
+
+The cane labels of `fields_v2` come from Sentinel-2 NDVI phenology (script 07: a long
+plateau ≥ 0.6, at most one collapse per season, a high peak) plus the author's visual
+tracing of the polygons. Any classifier fed NDVI features is partly re-learning the rule
+that produced its own labels, so its score is optimistic by construction. The script-07
+rule, scored against its own labels, is 38/38 by definition. So three variants are kept
+apart and all are reported:
+
+* **A, radar only** (NISAR GCOV asc + desc, GUNW coherence). No NDVI in the inputs: this
+  is the honest test of whether the field can be recognised as cane independently.
+* **B, optical only** (NDVI phenology + bare-pixel share). It shows how close a model gets
+  to the labelling rule. It is not independent evidence.
+* **C, combined** (radar + optical + VIIRS fire). It shows what optical adds on top of
+  radar.
+* **A+F** (radar + VIIRS fire) is also reported. It uses no optical input either.
+
+**Operational gate: variant B (optical).** The product cannot drop p36, the only field
+with a grower-confirmed harvest. The radar-only variant A drops it (P = 0.20) together with
+p2a and p16; B drops no cane field.
+* The circularity caveat still holds: B's 37/38 is agreement with the rule that made the
+  labels, not independent accuracy.
+* The division of labour is: **optical selects the fields, radar dates the harvest** (4b).
+* **A is kept as the independent check.** `classify_fields` always returns `p_cane_radar`
+  (variant A) next to `p_cane` (the chosen variant), so a map can show the radar evidence
+  per field.
+* A is also the evidence that L-band alone separates cane from these non-cane fields: 34/38
+  (89 %) leave-one-field-out, with no optical input.
+* `classify_fields(..., variant="radar")` makes A the gate when optical is unavailable.
+
+Not recommended:
+* **C** (radar + optical + fire) is no better than B and drops p8.
+* **A+F** scores one field above A, which is within the noise of 38 fields. Its fire
+  coefficient is negative, the opposite of the physics (cane is burned before it is cut),
+  and depends on one field (p8, 8 detections). Fire counts do not differ between the
+  classes here (median 1 and 1): VIIRS pixels are 375 m and pick up burns in neighbouring
+  fields.
+
+### Features (one row per field × zafra)
+
+A zafra is Nov 1 .. May 31. Radar exists only for 2025-26 (every NISAR scene is between
+2025-11-18 and 2026-05-22). `has_radar` / `has_optical` flag which rows have each source.
+
+| feature | definition |
+|---|---|
+| hv_range_db, hv_std_db, hh_std_db | max − min / std of the field-mean HV (HH) over the zafra, per orbit, then averaged over the two orbits |
+| cross_ratio_mean_db, cross_ratio_std_db | mean / std of HV − HH, per orbit, averaged |
+| hv_max_single_drop_db | most negative HV step between consecutive acquisitions of the same orbit (both orbits searched) |
+| coh_min, coh_mean, coh_range | min / mean / max − min of the **field-mean** HH coherence of the 12-day ascending pairs ending in the zafra (the per-pixel minimum is noise) |
+| joint_collapse | 1 if the date after the largest HV drop and the secondary date of the lowest-coherence pair are ≤ 12 days apart |
+| hv_pre_level_db | median HV in Nov-Dec, per orbit, averaged (tall cane is a strong volume scatterer) |
+| enl_median | median field ENL over all acquisitions |
+| ndvi_max, ndvi_min | over the clear scenes (≤ 10 % of the field masked) of the **crop year**, Jun 1 .. May 31 |
+| ndvi_days_above_0_6 | days covered by consecutive clear scenes both ≥ 0.6 |
+| ndvi_longest_high_run_days | longest run of clear scenes ≥ 0.6, first → last (script-07 rule) |
+| ndvi_n_collapses | clear scenes > 0.3 below the highest clear scene of the previous 30 days; re-armed only once NDVI is back ≥ 0.6 |
+| ndvi_collapse_month | month of the largest collapse. The model uses `collapse_in_zafra` (1 Nov-May, 0 Jun-Oct, NaN if none) |
+| bare_share_after_collapse | share of the field's clear 10 m pixels with NDVI ≤ 0.35 in the lowest clear scene within 30 days after the largest collapse (`optical.s2_bare_share`) |
+| fire_count_in_zafra | VIIRS detections, pixel centre ≤ 200 m from the polygon, in the zafra |
+
+Optical uses the crop year rather than the zafra because the plateau that marks cane lies
+mostly in the rainy season before the cut, and an annual crop's rainy-season harvest is
+what separates it from cane.
+
+### Models and evaluation
+
+* Logistic regression, the same pipeline as 4b (`model.make_logistic`): median imputation
+  with missing indicators, standardization, `class_weight="balanced"`, C = 1.
+* Training: the 38 `fields_v2` polygons in 2025-26. Positive = `label == cana` (26).
+  Negative = everything else (11 `dudoso`, 1 `no_cana`). p5 is `dudoso` with a cane
+  hypothesis and may in fact be cane.
+* Evaluation: leave-one-field-out (38 folds). Rules have no parameters fitted to the data
+  and are scored directly.
+* Rule baselines: NDVI (`longest_high_run ≥ 150 d and n_collapses == 1`) and radar
+  (`hv_max_single_drop ≤ −2 dB and joint_collapse == 1`).
+* Gate + detector: the harvest dates of every 4b method (`results/4b/dates.csv`) count
+  only on fields the gate's leave-one-out decision calls cane.
+
+### Limitations of the gate
+
+* **38 fields, one zafra, one area.** One field is 2.6 percentage points of accuracy.
+  Differences of 1-2 fields between variants are not significant.
+* **Labels are NDVI-derived** (see above). Variant A's errors are measured against an
+  optical reference, not against field visits. Only p36 has a grower-confirmed date.
+* **The "largest HV drop" is often not the cut.** On 8 of the 26 cane fields it falls
+  after Apr 20 (the late-April storms and the drying after them), so `joint_collapse` is
+  0 on 11 of the 26. The radar rule therefore recalls only 12/26. Coherence minimum and
+  pre-season HV level carry most of variant A.
+* **The non-cane fields are mostly small or pasture-like `dudoso` polygons** traced near
+  cane, not a sample of everything a user might draw (orchards, towns, irrigated
+  vegetables). Applied to other land covers, the gate is untested.
 
 ## References
 

@@ -184,3 +184,95 @@ not line up with their NDVI windows: on 2-6 ha segments the C-band VH changes at
   "10 days off" even if that field was cut a day before the next one.
 * **S1 orbit choice.** The requested descending pass leaves a 54-day hole around the
   ground-truth date. The ascending pass is used as supporting evidence only.
+
+### Second grower date: 2026-02-26 (zafra 2025/26)
+
+The grower gives a second date for p36: **burned and cut on 2026-02-26**. It is not yet clear
+whether that was the start or the end of the cut on this 21 ha field. It is stored as
+`ground_truth_date_2026` / `ground_truth_event_2026` in `fields_v2.geojson`. The
+`harvest_window_start/end` (02-09 → 02-14, from NDVI) are left unchanged.
+
+Three hypotheses were tested:
+
+* (A) one event on 02-26;
+* (B) a staged harvest from 02-09 to 02-26;
+* (C) something else.
+
+**VIIRS (FIRMS), 2026-02-01..03-05.** No detection inside the polygon or within 500 m.
+There was none within 2 km either. That neither confirms nor rules out a burn: VIIRS only
+looks at ~01:30 and ~13:30 local. The 2025 burn on p36 was caught, but many are not.
+
+**Sentinel-2, every clear date 2026-01-25..03-15.** All 2143 pixels, ≤ 10 % masked. Bare =
+NDVI ≤ 0.35. The four halves are cut through the centroid; N/S and W/E overlap.
+
+| date | NDVI field mean | pixels bare: all / N / S / W / E | NBR (B8, B12) |
+|---|---|---|---|
+| 01-25 | 0.57 | 0.08 / 0.08 / 0.08 / 0.07 / 0.09 | 0.41 |
+| 01-30 | 0.54 | 0.10 / 0.09 / 0.11 / 0.09 / 0.12 | 0.41 |
+| 02-04 | 0.54 | 0.09 / 0.08 / 0.10 / 0.08 / 0.11 | 0.41 |
+| 02-09 | 0.53 | 0.10 / 0.10 / 0.11 / 0.08 / 0.12 | 0.41 |
+| 02-14 | 0.21 | **0.88** / 0.83 / 0.92 / 0.96 / 0.79 | −0.02 |
+| 02-19 | 0.19 | 0.89 / 0.85 / 0.93 / 0.96 / 0.82 | −0.03 |
+| 02-24 | 0.22 | 0.88 / 0.83 / 0.92 / 0.97 / 0.78 | −0.07 |
+| 03-01 | 0.23 | 0.88 / 0.84 / 0.93 / 0.97 / 0.79 | −0.03 |
+| 03-06 | 0.22 | 0.90 / 0.84 / 0.95 / 0.98 / 0.81 | −0.06 |
+| 03-13 | 0.24 | 0.92 / 0.87 / 0.96 / 0.98 / 0.85 | −0.00 |
+
+(03-11 is cloudy: 83 % masked.)
+
+**NISAR.**
+
+| HV asc (dB) | | HV desc (dB) | | HH coherence, asc pairs | |
+|---|---|---|---|---|---|
+| 02-03 | −14.69 | 02-10 | −14.72 | 01-22/02-03 | 0.62 |
+| 02-15 | −15.94 | 02-22 | −16.29 | 02-03/02-15 | **0.32** |
+| 02-27 | −17.29 | 03-06 | −15.86 | 02-15/02-27 | 0.42 |
+| 03-11 | −17.33 | | | 02-27/03-11 | 0.46 |
+
+For context, HH asc on the same dates: −9.54, −9.01, −10.77, −10.63 dB. The pairs after the
+cut stay at 0.42-0.46 through April, against 0.59-0.66 before it.
+
+**Interpretation.**
+
+* **(A) A single burn-and-cut on 02-26: not supported for the cane.** Between the 02-09 and
+  02-14 images (both ~11:00 local), 78 % of the field's pixels went from canopy to bare: 10 %
+  → 88 %. It happened in all four halves at once, and NBR fell from 0.41 to −0.02. Two NISAR
+  signals agree, independently of S2:
+  * the coherence collapse is in the 02-03/02-15 pair;
+  * the first HV drop is in 02-03 → 02-15 (asc) and 02-10 → 02-22 (desc).
+
+  By 02-26 the canopy had been gone for at least 12 days.
+* **(B) A harvest staged over 02-09..02-26: not supported either, at 10 m.** Every part of the
+  field turned bare in the same 5-day interval. After 02-14 the bare fraction stays flat at
+  0.88-0.90 in every half until 03-06, including 02-24 → 03-01. The pixels that never go
+  bare (~10 %, mostly on the N and E halves) were already partly non-bare before the cut, and
+  they do not change around 02-26. They are probably field edges, trees or borders, not a
+  late strip of cane. A late strip smaller than ~1-2 % of the field (≤ 0.3 ha) would not show.
+* **(C) Something did happen between 02-15 and 02-27, but it is not the cut.** NISAR asc
+  drops a second time on the bare field (HV −1.35 dB, HH −1.76 dB, 02-15 → 02-27), and then
+  stays flat. Possible causes:
+  * burning or removing the cane trash (*soca* / residue) left after a green cut;
+  * tillage or ratoon work;
+  * the soil drying out.
+
+  Optical does not show a burn: NBR on 02-24 → 03-01 goes up slightly (−0.07 → −0.03), and
+  the scene-to-scene wobble is about ± 0.04. Descending HV does not repeat the second step
+  (02-22 → 03-06: +0.4 dB). The 02-15/02-27 coherence (0.42) is no lower than the
+  post-harvest pairs after it.
+
+**Conclusion.** The data put p36's 2025/26 cut, and most likely its burn, at **2026-02-09 ..
+02-14**. That is 12-17 days before the reported 02-26. Neither 02-26 as the cut date nor a
+cut running until 02-26 fits. More likely, 02-26 refers to something else:
+* a later residue burn or field operation (consistent with the second NISAR asc step);
+* the grower's other parcel, or a wrong date on the video.
+
+This is the question to put to the grower. If 02-26 were confirmed as the cut date, the S2
+02-14 scene would have to be wrong for the whole field. Its in-field mask is 0.19 % and the
+next three clear scenes agree with it, so that is unlikely.
+
+**Limits.** VIIRS silence proves nothing. The halves are coarse. NBR on a bare field is noisy
+(soil moisture, residue cover). The second NISAR step is seen on one pass only. All numbers
+come from the caches written by `scripts/08_multisignal.py` (NISAR) and
+`scripts/09_p36_ground_truth.py` (S2 series). The per-pixel bare fraction and NBR were
+computed ad hoc in Earth Engine with the same SCL mask and pixel-centre rule; that code is not
+in the repo.

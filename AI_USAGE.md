@@ -141,3 +141,19 @@ Append one line per session: date, what the AI helped with, what was changed or 
   - Reported as measured, not fixed: the early-December detection spike, the fire peak in
     April without matching detections, cane calls on WorldCover tree cover, and the
     missing official cane-area figure (TODO).
+- 2026-10-26: Exercise 4e. Claude Code implemented the author's five fixes to the
+  area-wide map: the baseline requirement (`model.baseline_date`), fires restricted to cane,
+  the WorldCover flag, fragment merging and the slim frontend export. It also wrote the
+  tests and doc updates.
+  - It read the baseline rule first as "any orbit". It switched to "≥ 3 standing looks in
+    the candidate's own orbit" after seeing that the looser reading kept 280 detections at
+    the 3rd ascending look. It reports both.
+  - It counted standing looks instead of requiring all earlier looks to be standing,
+    because the strict version dropped two well-founded March training fields (p8, p21).
+  - Merging lowered IoU (24 → 12 fields ≥ 0.5), so, per the brief, the unmerged layer
+    stays delivered. An exact-date merge was also checked (14 fields).
+  - The slim file meets the 15 MB target only without the non-cane segments (8.2 MB vs
+    36-61 MB). The author approved leaving them out (non-cane is not drawn).
+  - After review, at the author's request: undated cane segments that WorldCover maps as
+    trees or grassland get confidence "uncertain". The pre-Dec-20 limit is now stated as
+    a consequence of coverage starting in Nov 2025.

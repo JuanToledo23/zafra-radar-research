@@ -306,3 +306,97 @@ def summarize_matches(m: pd.DataFrame) -> dict:
         "under_segmented": int(m["under_segmented"].sum()),
         "missed": int(m["best_segment"].isna().sum()),
     }
+
+
+# --- merging fragments (exercise 4e) ------------------------------------------------------------
+
+MERGE_MAX_DAYS = 6  # half the 12-day revisit: two fragments of one cut share a date to ~this
+MIN_SHARED_EDGE_M = 10.0  # one 10 m pixel edge: corner contacts do not make neighbours
+
+
+def adjacent_pairs(gdf, min_edge_m: float = MIN_SHARED_EDGE_M, tol_m: float = 1.0):
+    """(i, j) positional pairs, i < j, of polygons sharing >= min_edge_m of boundary.
+
+    gdf in a metric CRS. A boundary counts as shared where it lies within `tol_m` of the
+    other polygon (simplified neighbours no longer share exact vertices).
+    """
+    geoms = gdf.geometry.reset_index(drop=True)
+    left, right = geoms.sindex.query(geoms.buffer(tol_m), predicate="intersects")
+    keep = left < right
+    pairs = []
+    for i, j in zip(left[keep], right[keep], strict=True):
+        if geoms[i].boundary.intersection(geoms[j].buffer(tol_m)).length >= min_edge_m:
+            pairs.append((int(i), int(j)))
+    return pairs
+
+
+def merge_groups(dates, statuses, pairs, max_days: int = MERGE_MAX_DAYS) -> np.ndarray:
+    """Group ids after merging adjacent polygons with compatible harvest dates.
+
+    Neighbours (i, j) are compatible if both have a date and they differ by <= max_days, or
+    both have no date and the same status. Pairs are joined closest dates first (union-find),
+    and a join is refused if the merged group's dates would span more than max_days, so a
+    chain of small steps cannot drift (A-B 5 d and B-C 5 d do not give A-C 10 d).
+    """
+    d = pd.to_datetime(pd.Series(dates)).reset_index(drop=True)
+    st = pd.Series(statuses).reset_index(drop=True)
+    n = len(d)
+    parent = list(range(n))
+    lo, hi = d.copy(), d.copy()
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    edges = []
+    for i, j in pairs:
+        if pd.notna(d[i]) and pd.notna(d[j]):
+            gap = abs((d[i] - d[j]).days)
+            if gap <= max_days:
+                edges.append((gap, i, j))
+        elif pd.isna(d[i]) and pd.isna(d[j]) and st[i] == st[j]:
+            edges.append((0, i, j))
+    for _, i, j in sorted(edges):
+        a, b = find(i), find(j)
+        if a == b:
+            continue
+        if pd.notna(lo[a]):
+            new_lo, new_hi = min(lo[a], lo[b]), max(hi[a], hi[b])
+            if (new_hi - new_lo).days > max_days:
+                continue
+            lo[a], hi[a] = new_lo, new_hi
+        parent[b] = a
+    return np.array([find(i) for i in range(n)])
+
+
+def dissolve_groups(gdf, groups, date_col: str, weighted=(), first=()):
+    """One polygon per group: geometry union, area_ha summed, `date_col` and `weighted`
+    columns area-weighted means, `first` columns taken from the largest member, plus
+    n_merged and member_ids (comma-separated `seg_id`)."""
+    g = gdf.assign(_grp=groups, _a=gdf.geometry.area)
+    rows = []
+    for _, m in g.groupby("_grp", sort=False):
+        w = m["_a"].to_numpy()
+        big = m.loc[m["_a"].idxmax()]
+        row = {c: big[c] for c in first}
+        dd = pd.to_datetime(m[date_col])
+        if dd.notna().all():
+            ref = dd.min()
+            off = ((dd - ref).dt.total_seconds() * w).sum() / w.sum()
+            row[date_col] = (ref + pd.Timedelta(seconds=off)).normalize()
+        else:
+            row[date_col] = pd.NaT
+        for c in weighted:
+            v = m[c].to_numpy(dtype="float64")
+            ok = np.isfinite(v)
+            row[c] = float((v[ok] * w[ok]).sum() / w[ok].sum()) if ok.any() else np.nan
+        row["area_ha"] = float(w.sum() / 1e4)
+        row["n_merged"] = len(m)
+        row["member_ids"] = ",".join(m["seg_id"].astype(str))
+        row["geometry"] = m.geometry.union_all() if len(m) > 1 else m.geometry.iloc[0]
+        rows.append(row)
+    import geopandas as gpd
+
+    return gpd.GeoDataFrame(rows, geometry="geometry", crs=gdf.crs)

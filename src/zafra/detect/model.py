@@ -226,3 +226,70 @@ def dates_from_probabilities(df: pd.DataFrame, col: str, threshold: float = THRE
         r = sustained_date(d["date"], (d[col] >= threshold).astype(int))
         rows.append({"field_id": fid, **r})
     return pd.DataFrame(rows)
+
+
+# --- baseline requirement (exercise 4e) -----------------------------------------------------
+
+MIN_BASELINE = 3
+STATUS_HARVESTED = "harvested"
+STATUS_BEFORE_COVERAGE = "harvested_before_coverage"
+STATUS_NO_BASELINE = "no_baseline"
+STATUS_NOT_DETECTED = "not_detected"
+
+
+def baseline_date(
+    times, orbits, states, min_baseline: int = MIN_BASELINE, own_orbit: bool = True
+) -> dict:
+    """sustained_date, but a date is only emitted if the field was seen standing first.
+
+    The candidate is the acquisition sustained_date picks (the first 1 followed by a 1, both
+    orbits merged in time). It is accepted only if, before it, the field has at least
+    `min_baseline` acquisitions *of the candidate's own orbit* classified 0 (standing). The
+    drop is measured against that orbit's own baseline (features.season_baseline), so
+    standing looks of the other orbit do not count. A single unconfirmed 1 among the earlier
+    looks (one orbit sees the cut a look before the other) does not void the baseline.
+    own_orbit=False accepts either orbit (looser variant, reported for comparison in 4e).
+    Otherwise date is NaT and status says why:
+      harvested_before_coverage  no acquisition before the candidate is classified 0 (the
+                                 series starts already harvested, e.g. cut before Nov);
+      no_baseline                some standing looks, but fewer than `min_baseline` in the
+                                 candidate's orbit.
+    With no candidate at all the status is not_detected. Only the first candidate is
+    considered: a field that starts harvested is not dated later on its regrowth.
+    """
+    t = pd.to_datetime(pd.Series(times)).reset_index(drop=True)
+    o = pd.Series(orbits).reset_index(drop=True)
+    s = np.asarray(states, dtype=int)
+    order = np.argsort(t.to_numpy(), kind="stable")
+    t, o, s = t.iloc[order].reset_index(drop=True), o.iloc[order].reset_index(drop=True), s[order]
+    none = {"date_before": pd.NaT, "date_after": pd.NaT, "date": pd.NaT, "detected": False}
+    cand = next((i for i in range(len(s) - 1) if s[i] == 1 and s[i + 1] == 1), None)
+    if cand is None:
+        return none | {"status": STATUS_NOT_DETECTED}
+    prior_s, prior_o = s[:cand], o.iloc[:cand].to_numpy()
+    orbs = [o.iloc[cand]] if own_orbit else np.unique(prior_o)
+    ok = any(((prior_o == orb) & (prior_s == 0)).sum() >= min_baseline for orb in orbs)
+    if not ok:
+        status = STATUS_NO_BASELINE if (prior_s == 0).any() else STATUS_BEFORE_COVERAGE
+        return none | {"status": status, "date_after": t.iloc[cand]}
+    after, before = t.iloc[cand], t.iloc[cand - 1]
+    return {
+        "date_before": before,
+        "date_after": after,
+        "date": before + (after - before) / 2,
+        "detected": True,
+        "status": STATUS_HARVESTED,
+    }
+
+
+def dates_with_baseline(df: pd.DataFrame, col: str, threshold: float = THRESHOLD, **kw):
+    """baseline_date per field from P(state = 1) in `col`, asc and desc merged.
+
+    Same ordering and dates as dates_from_probabilities: rows ordered by exact acquisition
+    time (acq_utc), dates reported as the UTC acquisition days (`date`)."""
+    rows = []
+    for fid, d in df.groupby("field_id", sort=True):
+        d = d.sort_values("acq_utc")
+        r = baseline_date(d["date"], d["orbit"], (d[col] >= threshold).astype(int), **kw)
+        rows.append({"field_id": fid, **r})
+    return pd.DataFrame(rows)

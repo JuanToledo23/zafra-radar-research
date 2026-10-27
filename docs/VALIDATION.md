@@ -634,6 +634,9 @@ Per-field table: `results/4d/segmentation.md`.
 | harvest date quantiles 10/25/50/75/90 % | Dec 14 / Jan 7 / Feb 6 / Mar 8 / Apr 13 |
 | xgboost vs logistic date | median difference 6 d, 81 % within 12 d |
 
+The dating rows of this table are from exercise 4d, before the baseline requirement. The
+corrected figures are in the next section (3 976 dated segments, 6 867 ha).
+
 Gate "cane" by WorldCover class: cropland 2 989 segments (5 611 ha), tree cover 2 036
 (2 720 ha), grassland 791 (1 313 ha), shrubland 196 (282 ha).
 
@@ -643,31 +646,120 @@ TODO (author): fill the mill's harvested cane area for zafra 2025/26 from CONADE
 compare with the 9 943 ha above. The AOI is the FIRMS bbox, not the mill's supply area, so
 even a matching figure would need the supply-area boundary to be meaningful.
 
-### Sanity read: harvest dates against fires
+### Sanity read: harvest dates against fires (corrected in exercise 4e)
 
-Figure `results/4d/harvest_vs_fires_weekly.png`; weekly table
-`results/4d/weekly_harvest_fire.csv`. The figure has two panels sharing the week axis.
-1 097 VIIRS detections fell in the AOI between Nov and May.
-* **The overall shape matches.** Both start in December, stay high through February and
-  March and tail off in May.
-* **Weekly correlation:** r = 0.59 in the same week, r = 0.64 when fires are one week
-  *later* than the detector's date, and r ≤ 0.40 at other lags.
-* **Fires following the date is not a contradiction.** The detector's date is the midpoint
-  between the last standing and the first harvested acquisition, up to ~6 days before the
-  cut is seen, and cane is burned just before it is cut.
-* **What does not match:**
-  * **An early-December spike** of 489 segments (harvest_after Dec 12-17), when VIIRS saw
-    14-30 fires a week. Mid-December is the first date the detector can fire, once its
-    Nov-Dec baseline is set. Fields already cut before the season, or regrowing, pile up
-    there. Probably an artefact; these dates should not be trusted.
-  * **April and May.** Fires stay high (peak 73 in the week of Apr 6) while detections
-    fall. Possible causes: late harvests the detector misses, the late-April storms, and
-    non-cane burning.
-  * **Only 8 % of dated segments** have a VIIRS detection ≤ 200 m in the 7 days before the
-    first harvested acquisition. VIIRS misses most short burns, so this is not a test.
+Exercise 4e replaced the first version of this read. The figures below come from
+`scripts/14_area_harvest_map.py` with the baseline requirement (METHODS, "Field
+delineation"), fires restricted to cane, and WorldCover flags. They are in
+`results/4e/area_summary.json`, `results/4e/weekly.csv` and
+`results/4e/harvest_vs_fires_weekly.png`. The 4d version is kept in `results/4d/`.
+
+**1. The baseline requirement removes the December artefact.** A date is now emitted only
+after at least 3 standing acquisitions in the candidate's own orbit.
+
+| | 4d (no baseline rule) | 4e (3-look baseline) |
+|---|---|---|
+| cane segments with a date | 4 629 (8 080 ha) | **3 976 (6 867 ha)** |
+| dated in the week of Dec 8 (the 4d peak) | 489 | **0** |
+| dated in the weeks of Nov 24 + Dec 1 | 53 | 0 |
+| dated Dec 1-20 | 748 | 190 (all Dec 20, the earliest datable day) |
+| status `no_baseline` | — | 653 segments (1 213 ha) |
+| status `harvested_before_coverage` | — | 0 |
+| date quantiles 10/25/50/75/90 % | Dec 14 / Jan 7 / Feb 6 / Mar 8 / Apr 13 | Jan 1 / Jan 19 / Feb 12 / Mar 14 / Apr 19 |
+| date confidence high / medium / low | 3 049 / 1 115 / 465 | 2 732 / 898 / 346 |
+
+* **The whole mid-December peak goes.** It was candidates at the 2nd-3rd look of an orbit,
+  whose "drop" was measured against a baseline that included the candidate itself.
+* **No segment gets `harvested_before_coverage`.** The detector is field-relative: a field
+  cut before November is low from its first look, its own baseline is low too, and it
+  reads as standing. Such fields end as `not_detected`. The radar detector cannot see
+  pre-season cuts.
+* **Price on the 26 training fields:** 25 keep their exact date. p16 (NDVI window Dec 31 -
+  Jan 2) becomes `no_baseline`: its descending track flickers and has only 2 standing looks
+  before its Jan 5 candidate.
+* **Looser variant (either orbit counts).** It keeps 496 dates in Dec 1-20 and loses no
+  training field. It was rejected because 3 standing descending looks say nothing about
+  the ascending baseline the candidate is measured against.
+
+**2. Fires restricted to cane.** "Near cane" = VIIRS detections within 200 m of a gated
+cane segment: 673 of the 1 097 detections in the AOI (61 %).
+
+| weekly r, harvests vs fires | same week | fires +1 week | best lag |
+|---|---|---|---|
+| 4d dates, all AOI fires | 0.59 | 0.64 | +1 week (0.64) |
+| 4e dates, all AOI fires | 0.70 | 0.58 | same week (0.70) |
+| 4e dates, fires near cane | **0.71** | 0.56 | fires 2 weeks *before* (0.73) |
+
+**April** (Apr 1-30):
+
+| | value |
+|---|---|
+| fires in the AOI | 189 |
+| fires near cane | 103 |
+| harvest detections | 479 segments, 754 ha (479 under the 4d rule too) |
+
+* Fires per detection in April: 103 / 479 = 0.22, against 673 / 3 976 = 0.17 over the
+  season. Once restricted to cane, April is not out of line.
+* **About half of April's fires are not near cane.** The AOI peak of 73 in the week of
+  Apr 6 has only 37 near cane. The 4d impression of "fires peak, harvests fall" came mostly
+  from non-cane burning.
+* **The week of Mar 30 has no detections**, from cadence rather than ground truth: no
+  descending scene near Mar 30 (a 24-day gap), so no midpoint date falls in that week.
+
+**3. WorldCover flag.** 2 827 cane segments (4 034 ha) are mapped by WorldCover 2021 as tree
+cover or grassland (`wc_disagrees`). They are kept and outlined on the map. The 1 378 of
+them with no harvest date get `confidence = "uncertain"` and are cross-hatched.
+* On the map they are mostly thin strips along ravines and isolated patches in the hills,
+  which looks like riparian vegetation.
+* Their outcome differs from the other cane segments:
+
+  | | flagged by WorldCover | other cane segments |
+  |---|---|---|
+  | no harvest detected | 42 % | ~6 % |
+  | harvest dated | 51 % | 79 % |
+
+* So a large part of the flagged segments are probably gate false positives. The flag
+  does not prove it: cane is also mapped as trees by WorldCover.
+
+**4. Merging fragments does not recover fields** (`scripts/15_merge_fragments.py`,
+`results/4e/merge.md`). Adjacent cane segments were merged when their dates differ by ≤ 6
+days (a group spans ≤ 6 days), or both are undated with the same status.
+
+| layer | cane polygons | median cane ha | IoU ≥ 0.5 (38) | median IoU (38) | IoU ≥ 0.5 (26 cane) | median IoU (26 cane) | under-segmented (38) |
+|---|---|---|---|---|---|---|---|
+| unmerged (**delivered**) | 6 014 | 1.22 | 24 | 0.58 | 14 | 0.53 | 10 |
+| merged, ≤ 6 days | 3 624 | 1.46 | 12 | 0.27 | 3 | 0.16 | 27 |
+| merged, identical dates only | 4 144 | — | 14 | 0.38 | — | — | 24 |
+
+* Neighbouring fields are cut within days of each other, and at a 6-12 day revisit they
+  share a date, so merging on dates glues separate fields together.
+* The unmerged layer stays the delivered one.
+* The frontend file `data/results/harvest_map_2025_26_slim.geojson` holds the 6 014 gated
+  cane polygons (all statuses, 5 m simplified, 10 columns) in 8.2 MB.
+* With the ~33 500 non-cane segments the file would be 36-61 MB even at 10 m tolerance.
+  The map shows non-cane as basemap.
+
+**Overall read.** After 4e, the weekly harvest counts and the weekly fires near cane rise
+and fall together (r ≈ 0.7), from late December to May. The remaining mismatches are
+cadence gaps (week of Mar 30), and the cut-off before ~Dec 20, which removes any real early
+harvest along with the artefact.
 
 ### Limitations
 
+* **VIIRS catches only ~9 % of harvests at field level.** 8.7 % of the 3 976 dated
+  segments have a VIIRS detection within 200 m in the 7 days before the first harvested
+  acquisition (8 % in 4d).
+  * The causes are short burns (30-60 min) in small fields, missed between the ~6 daily
+    overpasses bunched at ~01:30 and ~13:30, and 375 m pixels that miss small fires or
+    place them in a neighbouring field.
+  * **Fire is a zone-level check (weekly counts over many fields), not a field-level one.**
+    A field without a VIIRS detection is not evidence of an unburned or unharvested field.
+* **No harvest can be dated before ~Dec 20.** NISAR provisional coverage over the AOI
+  starts in November 2025 (descending Nov 18, ascending Nov 23). The baseline needs 3
+  standing looks in the candidate's orbit, so the first datable cut is the 4th look of an
+  orbit (desc Dec 24, asc Dec 29), giving dates from Dec 20 on. Any real harvest before
+  then is lost, together with the artefact. With a full year of data the baseline comes
+  from October, before the zafra starts, and this limit disappears.
 * The segments are fragments of fields (median cane segment 1.2 ha vs 2.6 ha hand-traced).
   The counts above are segment counts, not field counts.
 * The gate and the detector were trained on 38 and 26 hand-traced fields respectively and

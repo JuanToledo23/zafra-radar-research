@@ -418,7 +418,71 @@ tables:
   * high: the gate is sure (P > 0.8) and the radar-only gate agrees (p_cane_radar ≥ 0.5);
   * low: the gate is unsure and radar disagrees;
   * medium: otherwise;
-  * none: no sustained detection.
+  * none: no sustained detection;
+  * uncertain (exercise 4e): a gated cane segment with no harvest date whose WorldCover
+    majority is tree cover or grassland (`wc_disagrees`). Here the cane call itself is in
+    doubt, so the segment is kept and marked, not removed. Cross-hatched on the map.
+
+### Fixes to the area-wide run (exercise 4e)
+
+Code: `detect/model.py` (`baseline_date`, `dates_with_baseline`), `segments.py`
+(`adjacent_pairs`, `merge_groups`, `dissolve_groups`), drivers
+`scripts/14_area_harvest_map.py` and `scripts/15_merge_fragments.py`, tests
+`tests/test_area_fixes.py`. Results: `results/4e/`, `docs/VALIDATION.md`.
+
+**Baseline requirement.** The sustained rule (4b) picks a candidate: the first acquisition
+classified harvested that is followed by another, both orbits merged in time. Its date is
+now kept only if, before it, the field has **≥ 3 acquisitions of the candidate's own
+orbit classified standing**.
+* Why the own orbit: the features measure the drop against that orbit's baseline (the
+  median of its first 3 acquisitions in Nov-Dec), so standing looks of the other orbit say
+  nothing about it.
+* Why a count rather than "every earlier look standing": on several training fields one
+  orbit sees the cut one look before the other. That leaves an unconfirmed "harvested"
+  look just before the candidate in a field with 7+ standing looks. Requiring all earlier
+  looks to be standing would drop those well-founded March cuts (p8, p21).
+* Only the first candidate is considered.
+* `status`:
+  * `harvested`: dated;
+  * `no_baseline`: some standing looks, but < 3 in the candidate's orbit;
+  * `harvested_before_coverage`: no standing look before the candidate;
+  * `not_detected`: no candidate;
+  * `not_cane`: gated out.
+* Effect: the earliest datable cut is the 4th look of an orbit (desc Dec 24 / asc Dec 29),
+  i.e. a date of Dec 20 or later. Earlier real harvests are lost along with the artefact.
+* On the 26 training fields (out-of-fold xgboost), 25 dates are unchanged and p16 becomes
+  `no_baseline`. A looser variant counting either orbit is reported in VALIDATION.
+
+**Flags.** `wc_class` is the WorldCover 2021 majority class of the segment. `wc_disagrees`
+is true when the gate says cane and WorldCover says tree cover (10) or grassland (30). It is
+outlined on the map; the segments are not removed. If such a segment also has no harvest
+date, its `confidence` is "uncertain" (1 378 segments) and it is cross-hatched on the map.
+
+**Fires near cane.** For the zone-level fire check, VIIRS detections are kept if they lie
+within 200 m of any gated cane segment (the same buffer as the per-field fire features).
+
+**Fragment merging (tested, not adopted).**
+* Adjacent gated cane segments (≥ 10 m of shared boundary, 1 m tolerance) are merged when
+  their harvest dates differ by ≤ 6 days, or both have no date and the same status.
+* Pairs are joined closest dates first (union-find), and a join is refused if the group's
+  dates would span more than 6 days, so chains cannot drift.
+* Area-weighted date, p_cane, p_cane_radar, hv_drop_db, coh_min. Status, confidence and
+  WorldCover from the largest member. Fire count recounted for the merged polygon.
+* Scored against the 38 fields, merging halves the number of fields with IoU ≥ 0.5 (24 →
+  12): neighbouring fields are cut within days of each other and share a date at this
+  revisit. **The unmerged segments remain the delivered layer**; the merged one is written
+  for reference (`harvest_dates_2025_26_merged.geojson`).
+
+**Frontend export.** `data/results/harvest_map_2025_26_slim.geojson` contains:
+* the gated cane polygons of the delivered layer, every status;
+* 5 m topology-preserving simplification, coordinates rounded to 1e-6°;
+* columns segment_id, area_ha, p_cane, p_cane_radar, harvest_date, status, confidence,
+  hv_drop_db, coh_min, wc_disagrees.
+
+It is 8.2 MB. Non-cane segments are left out: with them the file is 36-61 MB even at 10 m
+tolerance (the outlines are 10 m pixel staircases). The weekly series for the dashboard
+chart is `results/4e/weekly.csv`, with columns harvests, harvest_ha, fires_all, fires_cane
+and the 4d counts for reference.
 
 ### Limitations of the area-wide run
 
@@ -431,6 +495,9 @@ tables:
   but some will be orchards or riparian trees. Untested.
 * The detector's dates are only as good as on the 26 training fields (median error ~3.5 d),
   and it has never seen segments that mix two fields.
+* The radar detector is field-relative and cannot see cuts made before its first look
+  (Nov 18): such fields read as standing and end as `not_detected`.
+* VIIRS sees a fire near only ~9 % of the dated segments: fire is a zone-level check.
 
 ## References
 

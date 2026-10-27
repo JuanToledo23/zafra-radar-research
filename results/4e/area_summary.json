@@ -1,0 +1,186 @@
+{
+  "segments": 39542,
+  "predicted_cane": 6014,
+  "cane_ha": 9943.17,
+  "status_cane": {
+    "harvested": 3976,
+    "not_detected": 1385,
+    "no_baseline": 653
+  },
+  "status_cane_ha": {
+    "harvested": 6867.4,
+    "no_baseline": 1212.5,
+    "not_detected": 1863.3
+  },
+  "cane_with_harvest_date": 3976,
+  "cane_with_harvest_date_4d_rule": 4629,
+  "cane_harvest_ha": 6867.38,
+  "harvest_confidence": {
+    "high": 2732,
+    "medium": 898,
+    "low": 346
+  },
+  "confidence_cane_all": {
+    "high": 2732,
+    "uncertain": 1378,
+    "medium": 898,
+    "none": 660,
+    "low": 346
+  },
+  "logistic_detected": 3951,
+  "xgb_n_trees": 249,
+  "harvest_date_quantiles": {
+    "0.1": "2026-01-01",
+    "0.25": "2026-01-19",
+    "0.5": "2026-02-12",
+    "0.75": "2026-03-14",
+    "0.9": "2026-04-19"
+  },
+  "any_orbit_variant": {
+    "status_cane": {
+      "harvested": 4361,
+      "not_detected": 1385,
+      "no_baseline": 268
+    },
+    "dated_dec1_20": 496
+  },
+  "dated_dec1_20": {
+    "4d_rule": 748,
+    "baseline_rule": 190
+  },
+  "wc_disagrees": 2827,
+  "wc_disagrees_ha": 4033.7099999999996,
+  "fires_all_season": 1097,
+  "fires_cane_season": 673,
+  "april": {
+    "fires_all": 189,
+    "fires_cane": 103,
+    "harvests": 479,
+    "harvest_ha": 754.49,
+    "harvests_4d_rule": 479
+  },
+  "week_corr": {
+    "fires_all": [
+      {
+        "fires_weeks_after": -4,
+        "r": 0.293
+      },
+      {
+        "fires_weeks_after": -3,
+        "r": 0.369
+      },
+      {
+        "fires_weeks_after": -2,
+        "r": 0.629
+      },
+      {
+        "fires_weeks_after": -1,
+        "r": 0.523
+      },
+      {
+        "fires_weeks_after": 0,
+        "r": 0.702
+      },
+      {
+        "fires_weeks_after": 1,
+        "r": 0.584
+      },
+      {
+        "fires_weeks_after": 2,
+        "r": 0.405
+      },
+      {
+        "fires_weeks_after": 3,
+        "r": 0.523
+      },
+      {
+        "fires_weeks_after": 4,
+        "r": 0.446
+      }
+    ],
+    "fires_cane": [
+      {
+        "fires_weeks_after": -4,
+        "r": 0.327
+      },
+      {
+        "fires_weeks_after": -3,
+        "r": 0.498
+      },
+      {
+        "fires_weeks_after": -2,
+        "r": 0.734
+      },
+      {
+        "fires_weeks_after": -1,
+        "r": 0.604
+      },
+      {
+        "fires_weeks_after": 0,
+        "r": 0.708
+      },
+      {
+        "fires_weeks_after": 1,
+        "r": 0.562
+      },
+      {
+        "fires_weeks_after": 2,
+        "r": 0.375
+      },
+      {
+        "fires_weeks_after": 3,
+        "r": 0.46
+      },
+      {
+        "fires_weeks_after": 4,
+        "r": 0.378
+      }
+    ]
+  },
+  "week_corr_4d_rule_fires_all": [
+    {
+      "fires_weeks_after": -4,
+      "r": -0.018
+    },
+    {
+      "fires_weeks_after": -3,
+      "r": 0.104
+    },
+    {
+      "fires_weeks_after": -2,
+      "r": 0.395
+    },
+    {
+      "fires_weeks_after": -1,
+      "r": 0.318
+    },
+    {
+      "fires_weeks_after": 0,
+      "r": 0.592
+    },
+    {
+      "fires_weeks_after": 1,
+      "r": 0.64
+    },
+    {
+      "fires_weeks_after": 2,
+      "r": 0.366
+    },
+    {
+      "fires_weeks_after": 3,
+      "r": 0.397
+    },
+    {
+      "fires_weeks_after": 4,
+      "r": 0.394
+    }
+  ],
+  "check_vs_fields_v2": null,
+  "runtimes_s": {
+    "step5_radar_zonal_s": 0.5,
+    "step4_features_cached": true,
+    "step4_features_gate_s": 0.1,
+    "step5_detector_s": 27.0,
+    "step4_5_wall_s": 49.4
+  }
+}

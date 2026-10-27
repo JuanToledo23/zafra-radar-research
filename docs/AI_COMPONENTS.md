@@ -82,6 +82,9 @@ Results on these fields:
 - Results are reproducible: xgboost uses no row or column sampling and a fixed seed. An
   earlier version with 0.8 column sampling moved by a few days between runs.
 - Labels are optical windows of 2-10 days, not observed cut dates.
+- Area-wide (exercise 4e), a date is only emitted after ≥ 3 standing acquisitions in the
+  candidate's orbit; otherwise the field gets a status instead (`no_baseline`, ...). On the
+  26 training fields this changes one field (p16, now undated).
 
 **Risks (from the plan, still open).** Few labels, label noise, domain shift (region,
 season, NISAR calibration). Leakage is handled: features are causal and folds split fields.

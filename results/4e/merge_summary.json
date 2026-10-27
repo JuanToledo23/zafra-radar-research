@@ -1,0 +1,76 @@
+{
+  "adjacent_cane_pairs": 6366,
+  "merged_groups_with_2plus": 947,
+  "sizes": [
+    {
+      "layer": "unmerged",
+      "cane polygons": 6014,
+      "median cane ha": 1.22,
+      "mean cane ha": 1.6533372131692716,
+      "dated cane polygons": 3976,
+      "all polygons": 39542
+    },
+    {
+      "layer": "merged",
+      "cane polygons": 3624,
+      "median cane ha": 1.4599282260041826,
+      "mean cane ha": 2.743700282061665,
+      "dated cane polygons": 2345,
+      "all polygons": 37152
+    }
+  ],
+  "iou": [
+    {
+      "layer": "unmerged",
+      "fields": "all 38",
+      "n_fields": 38,
+      "median_iou": 0.582346888829472,
+      "mean_iou": 0.5820214537144759,
+      "share_iou_ge_0_5": 0.631578947368421,
+      "n_iou_ge_0_5": 24,
+      "over_segmented": 4,
+      "under_segmented": 10,
+      "missed": 0
+    },
+    {
+      "layer": "unmerged",
+      "fields": "26 cane",
+      "n_fields": 26,
+      "median_iou": 0.5309707221297526,
+      "mean_iou": 0.554312259635144,
+      "share_iou_ge_0_5": 0.5384615384615384,
+      "n_iou_ge_0_5": 14,
+      "over_segmented": 3,
+      "under_segmented": 7,
+      "missed": 0
+    },
+    {
+      "layer": "merged",
+      "fields": "all 38",
+      "n_fields": 38,
+      "median_iou": 0.2741249865014892,
+      "mean_iou": 0.356328078269674,
+      "share_iou_ge_0_5": 0.3157894736842105,
+      "n_iou_ge_0_5": 12,
+      "over_segmented": 3,
+      "under_segmented": 27,
+      "missed": 0
+    },
+    {
+      "layer": "merged",
+      "fields": "26 cane",
+      "n_fields": 26,
+      "median_iou": 0.16182564579160913,
+      "mean_iou": 0.2418818831124797,
+      "share_iou_ge_0_5": 0.11538461538461539,
+      "n_iou_ge_0_5": 3,
+      "over_segmented": 2,
+      "under_segmented": 23,
+      "missed": 0
+    }
+  ],
+  "delivered": "unmerged",
+  "slim_mb": 8.16,
+  "slim_polygons": 6014,
+  "runtime_s": 11.2
+}

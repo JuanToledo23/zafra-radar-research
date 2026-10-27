@@ -56,3 +56,34 @@ paths:
   merged_geojson: data/results/harvest_dates_2025_26_merged.geojson
   slim_geojson: data/results/harvest_map_2025_26_slim.geojson
   results_dir: results/4e
+
+# Exercise 6: alert rules (zafra.alerts) and per-field summaries (zafra.summary)
+alerts:
+  timezone: America/Mexico_City  # VIIRS times are UTC; the burn window is local time
+  fire_buffer_m: 200  # as cane_features.FIRE_BUFFER_M: detections <= 200 m from the edge
+  burn_window:
+    # Tlaquiltenango municipal burn window (source given by the project author; the
+    # document is to be cited in docs/METHODS.md). Other municipalities: same window
+    # assumed until confirmed.
+    default: ["09:00", "17:00"]
+    default_confirmed: false
+    municipalities:
+      Tlaquiltenango: ["09:00", "17:00"]
+  rules:
+    FIRE_ACTIVE_OUTSIDE_HOURS: {enabled: true, severity: warning}
+    BURN_WITHOUT_HARVEST: {enabled: true, severity: warning, days_after: 14}
+    # off since the exercise-6 review: burning is the norm here but VIIRS misses most cane
+    # burns (it fired on 91 % of dated harvests). Kept for completeness; the summary still
+    # says when no VIIRS fire was detected.
+    HARVEST_WITHOUT_FIRE: {enabled: false, severity: info, days_before: 7}
+    HIGH_DATE_UNCERTAINTY: {enabled: true, severity: info, max_days: 9}
+    RADAR_OPTICAL_DISAGREE: {enabled: true, severity: warning, max_other_p: 0.3}
+    NO_BASELINE: {enabled: true, severity: info}
+
+summary:
+  model: claude-haiku-5-5  # current small model; only used when ANTHROPIC_API_KEY is set
+  effort: low
+  max_tokens: 1024
+  max_words: 70  # verifier hard limit
+  word_budget: 55  # what the prompt asks for
+  price_usd_per_mtok: {input: 0.10, output: 0.50}  # Anthropic list price, Oct 2026

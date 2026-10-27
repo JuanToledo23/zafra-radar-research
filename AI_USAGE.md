@@ -83,15 +83,29 @@ Design details for each component: `docs/AI_COMPONENTS.md`.
 - **What it is NOT:** It does not identify the crop or detect harvest. The delivered
   segments are fragments of fields, not cadastral fields.
 
-### 3. Per-field natural-language summary: **planned** (built during the hackathon)
+### 3. Per-field summary: **implemented, LLM measured live** (exercise 6)
 
-- **What it does:** Turns one field's detector output into a short readable paragraph
-  (e.g. "Field 12 was probably burned on ~Mar 14 and harvested between Mar 11 and Mar 23").
-- **Prompted with:** A fixed template filled only with that field's computed results: dates,
-  confidence, fire detections and data gaps.
-- **What it is NOT:** It does not detect anything, make decisions or add facts. Every number
-  in the summary comes from the detectors. It is cosmetic, not scientific, and is checked by
-  hand.
+- **What it does:** Turns one polygon's computed results into a summary of at most 70
+  words, in Spanish and English. Example: "p36, 21.4 ha. Caña: confianza baja. Fecha:
+  12 feb 2026 ±2.5 días." Explicit alert rules (deterministic code, not AI)
+  flag fires outside the burn window, fires without a harvest, imprecise dates, gate
+  disagreement and missing baselines.
+- **Two renderers:**
+  - A deterministic template, always available.
+  - An LLM, Anthropic Claude Haiku 5.5 through the Messages API. It is given only the
+    polygon's facts, pre-formatted, with a prompt (`src/zafra/prompts/field_summary.md`)
+    that forbids any fact not in the input, advice and speculation.
+- **Checked by:** A verifier on every output. The harvest date, uncertainty, area and
+  alert codes must appear verbatim, and no other date, number or code may appear. If the
+  check fails, or the API key or the API is unavailable, the template text is shown and
+  the reason recorded.
+- **How good it is:** The template passes the verifier on 116/116 texts (58 polygons ×
+  2 languages). With the revised prompt, the LLM passes on 57 of 58 polygons (98.3 %);
+  the other one hit the output-token cap and fell back to the template. Measured cost:
+  $0.25 per 1,000 summaries.
+- **What it is NOT:** It does not detect anything, make decisions or add facts. It is not
+  legal evidence: a burn alert means a VIIRS detection near the polygon at that time. The
+  verifier checks values, not meaning. The summaries are labelled as generated text.
 
 ---
 
@@ -192,3 +206,36 @@ Append one line per session: date, what the AI helped with, what was changed or 
     the date confidence cross-checks against the other gate, B, instead of comparing A
     with itself. On Morelos, `weekly.csv` and the 4e figures stay byte-identical; the
     slim file grows from 8.2 to 8.5 MB with the two new columns.
+- 2026-10-27: Exercise 6, field summaries and alert rules. Claude Code wrote the facts and
+  summary module (`src/zafra/summary.py`), the six alert rules (`src/zafra/alerts.py`),
+  the prompt, the `alerts` / `summary` site-config sections, `scripts/17_field_summaries.py`,
+  `tests/test_summary.py` and the doc updates, following the author's written brief.
+  - Choices the brief left open:
+    * the three-class status mapping (harvested_before_coverage counts as no_baseline);
+    * giving the LLM pre-formatted strings, so the verifier can match exactly;
+    * summarising each reference field through its dominant segment;
+    * alerts only on gated cane polygons;
+    * the LLM's model settings (Haiku 5.5, effort low, JSON output).
+  - Off on Brazil: FIRE_ACTIVE_OUTSIDE_HOURS (no burn window is known for São Paulo) and, per the
+    brief, HARVEST_WITHOUT_FIRE.
+  - The LLM path was first exercised only with a mocked client (no API key).
+  - Reported as measured, not fixed:
+    * HIGH_DATE_UNCERTAINTY never fires (largest uncertainty 6 days);
+    * FIRE_ACTIVE_OUTSIDE_HOURS hits are all night overpasses;
+    * HARVEST_WITHOUT_FIRE fires on 91 % of dated harvests;
+    * p36's dominant segment covers only 27 % of the field.
+  - After review, at the author's request:
+    * HARVEST_WITHOUT_FIRE disabled on both sites;
+    * BURN_OUTSIDE_HOURS renamed FIRE_ACTIVE_OUTSIDE_HOURS, with the overpass in the
+      evidence;
+    * the 38 reference fields summarised from the field-level 4b/4c outputs, with
+      `segments_covering`.
+  - Measured with live calls once the key was in `.env`: 58 calls, 41 passed, 17 too long.
+  - Second review, at the author's request:
+    * confidence split into `cane_confidence` and `date_precision_days`, stated
+      separately;
+    * the prompt rewritten (55-word budget, fixed content, no interpretation language);
+    * a forbidden-phrase check added to the verifier.
+
+    Re-run live: 57/58 passed. Claude Code also found that rounding P before the 0.5
+    threshold changed `cane_confidence` on 2 segments, and fixed it.

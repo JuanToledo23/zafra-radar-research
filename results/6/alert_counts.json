@@ -1,0 +1,57 @@
+{
+  "site": "morelos",
+  "layer": "data/results/harvest_dates_2025_26.geojson",
+  "alerts": {
+    "cane_segments": 6014,
+    "per_code": {
+      "FIRE_ACTIVE_OUTSIDE_HOURS": 337,
+      "BURN_WITHOUT_HARVEST": 1325,
+      "HARVEST_WITHOUT_FIRE": 0,
+      "HIGH_DATE_UNCERTAINTY": 0,
+      "RADAR_OPTICAL_DISAGREE": 1202,
+      "NO_BASELINE": 653
+    },
+    "per_code_share": {
+      "FIRE_ACTIVE_OUTSIDE_HOURS": 0.056,
+      "BURN_WITHOUT_HARVEST": 0.2203,
+      "HARVEST_WITHOUT_FIRE": 0.0,
+      "HIGH_DATE_UNCERTAINTY": 0.0,
+      "RADAR_OPTICAL_DISAGREE": 0.1999,
+      "NO_BASELINE": 0.1086
+    },
+    "segments_with_alert": 2700,
+    "share_with_alert": 0.449,
+    "segments_with_warning": 2361,
+    "share_with_warning": 0.3926,
+    "status": {
+      "dated": 3976,
+      "no_harvest": 1385,
+      "no_baseline": 653
+    },
+    "check_cane_confidence_vs_geojson": {
+      "dated": 3976,
+      "agree": 3976
+    }
+  },
+  "summaries": 58,
+  "template_verifier_pass": "116/116",
+  "llm_used": "57/58",
+  "llm_fallback_reasons": {
+    "NaN": 57,
+    "stop_reason: max_tokens": 1
+  },
+  "cost": {
+    "model": "claude-haiku-5-5",
+    "token_source": "response.usage",
+    "calls_with_usage": 58,
+    "mean_input_tokens": 1378,
+    "mean_output_tokens": 217,
+    "price_usd_per_mtok": {
+      "input": 0.1,
+      "output": 0.5
+    },
+    "usd_per_1000_summaries": 0.2464,
+    "note": "one call = both languages; adaptive thinking tokens, if any, bill as output"
+  },
+  "runtime_s": 112.9
+}

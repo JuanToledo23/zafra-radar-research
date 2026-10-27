@@ -68,3 +68,27 @@ paths:
   merged_geojson: data/results/brazil/harvest_dates_merged.geojson
   slim_geojson: data/results/brazil/harvest_map_slim.geojson
   results_dir: results/5_brazil
+
+# Exercise 6: alert rules (zafra.alerts) and per-field summaries (zafra.summary)
+alerts:
+  timezone: America/Sao_Paulo
+  fire_buffer_m: 200
+  # No municipal burn window configured for Sao Paulo: FIRE_ACTIVE_OUTSIDE_HOURS needs one,
+  # so it is off here until a source is found.
+  burn_window: null
+  rules:
+    FIRE_ACTIVE_OUTSIDE_HOURS: {enabled: false, severity: warning}
+    BURN_WITHOUT_HARVEST: {enabled: true, severity: warning, days_after: 14}
+    # mechanised green harvest is the norm here: no fire before the cut is expected
+    HARVEST_WITHOUT_FIRE: {enabled: false, severity: info, days_before: 7}
+    HIGH_DATE_UNCERTAINTY: {enabled: true, severity: info, max_days: 9}
+    RADAR_OPTICAL_DISAGREE: {enabled: true, severity: warning, max_other_p: 0.3}
+    NO_BASELINE: {enabled: true, severity: info}
+
+summary:
+  model: claude-haiku-5-5
+  effort: low
+  max_tokens: 1024
+  max_words: 70  # verifier hard limit
+  word_budget: 55  # what the prompt asks for
+  price_usd_per_mtok: {input: 0.10, output: 0.50}

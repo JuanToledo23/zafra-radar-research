@@ -18,7 +18,9 @@ A site is one area of interest and one harvest season. The YAML holds:
 * gate_variant: the cane-gate variant delivered for this site (cane_gate.VARIANT_ALIASES or
   the letter: optical / B, radar / A, ...); the other gate is kept alongside as a check;
 * reference_fields: hand-traced polygons to score the segmentation against (null: none);
-* paths: every input and output file of scripts 12-15, relative to the repo root.
+* paths: every input and output file of scripts 12-15, relative to the repo root;
+* alerts, summary (optional, exercise 6): local time zone, burn window and alert-rule
+  parameters (zafra.alerts); model and limits of the field summaries (zafra.summary).
 
 The trained models are not part of a site: the cane gate and the harvest detector are
 always the exercise-4b/4c models fitted on the Morelos fields_v2 polygons.
@@ -84,6 +86,8 @@ class Site:
     reference_fields: Path | None
     paths: dict[str, Path] = field(default_factory=dict)
     check_windows: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = field(default_factory=dict)
+    alerts: dict = field(default_factory=dict)
+    summary: dict = field(default_factory=dict)
 
     @property
     def metric_crs(self) -> str:
@@ -200,6 +204,8 @@ def load_site(name: str = DEFAULT_SITE, register: bool = True) -> Site:
             k: (pd.Timestamp(v[0]), pd.Timestamp(v[1]))
             for k, v in (z.get("check_windows") or {}).items()
         },
+        alerts=c.get("alerts") or {},
+        summary=c.get("summary") or {},
     )
     if register:
         site.register()

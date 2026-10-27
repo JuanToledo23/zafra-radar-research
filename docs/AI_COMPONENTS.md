@@ -1,16 +1,18 @@
 # In-product AI components: design notes
 
 These are the AI components that run inside Zafra Radar (not the AI used to build it;
-see `AI_USAGE.md`). Status as of 2026-10-26: the harvest classifier (exercise 4b) and the
+see `AI_USAGE.md`). Status as of 2026-10-27: the harvest classifier (exercise 4b) and the
 cane / non-cane gate (exercise 4c) are implemented. Field segmentation (exercise 4d) was
-tried with SAM and runs with a classical method instead. The LLM summary is not built.
+tried with SAM and runs with a classical method instead. The per-field summary (exercise 6)
+is built: a deterministic template, and an LLM path constrained to the facts and checked by
+a verifier, with the template as fallback.
 
 | # | Component | Status | Exercise |
 |---|---|---|---|
 | 1 | Harvest classifier (dates harvest on known cane fields) | Implemented, evaluated | 4b |
 | 1b | Cane / non-cane gate (decides which fields the classifier runs on) | Implemented, evaluated | 4c |
 | 2 | Field segmentation | SAM evaluated, not used; classical method delivered | 4d |
-| 3 | Per-field LLM summary | Built during the hackathon | - |
+| 3 | Per-field summary (template + verified LLM) and alert rules | Implemented; LLM measured live (98.3 % verifier pass) | 6 |
 
 ---
 
@@ -204,25 +206,100 @@ stack is what separates them, and SAM did not use it well either.
 
 ---
 
-## 3. Per-field natural-language summary (LLM)
+## 3. Per-field summary and alert rules
 
-**Purpose.** Make the per-field results readable for a non-expert (a grower, a mill
-technician, a judge) in one short paragraph.
+**Status (2026-10-27).** Exercise 6. Code in `src/zafra/summary.py` (facts, renderers,
+verifier), `src/zafra/alerts.py` (rules), prompt in `src/zafra/prompts/field_summary.md`,
+driver `scripts/17_field_summaries.py`, tests `tests/test_summary.py`. Results in
+`results/6/summaries.md`, `summaries.jsonl`, `alert_counts.json`. Rule parameters and the
+model name are in the site config (`alerts`, `summary`).
 
-**Inputs.** Only that field's computed results, as structured data: field ID, area,
-estimated harvest interval, probability from the classifier and from the baseline, FIRMS
-detections (date, FRP), data gaps (e.g. 2026-07-27 to 2026-08-10, rain flags). Inserted into
-a fixed prompt template.
+**Purpose.** Make one polygon's results readable for a grower or mill technician, in
+Spanish and English, in at most 70 words, and flag the cases that need a look (alerts).
 
-**Outputs.** 2-4 sentences of plain text (Spanish and/or English) shown next to the field in
-the product.
+**Pipeline.**
+1. **Facts** (`field_facts`): a dict copied from the existing outputs. Nothing is
+   re-estimated.
+   * For a segment: the delivered harvest GeoJSON row (gate probabilities, status, date
+     and uncertainty, hv_drop, coh_min, WorldCover, confidence), its VIIRS detections
+     within 200 m (local time, overpass, sensor, FRP, inside or near), the acquisitions
+     used per orbit, and coh_min_date from the cane features.
+   * For the 38 reference fields: the field-level outputs instead (4b date, 4c gate,
+     field fires and coherence, GPM rain at the first harvested look). Also
+     `segments_covering`: the count of delivered segments and the share of the field they
+     cover. Details in `docs/METHODS.md`.
+2. **Alerts** (`alerts.evaluate`): six explicit rules; table and parameters in
+   `docs/METHODS.md`. The alerts are deterministic code, not AI.
+3. **Display values** (`summary.display`): the facts formatted once per language.
+   * a cane line, "Caña: confianza baja" / "Cane: low confidence" (`cane_confidence`);
+   * a date line, "Fecha: 12 feb 2026 ±2.5 días" / "Date: Feb 12, 2026 ±2.5 days"
+     (`date_precision_days`), or why there is no date;
+   * the fire count and the first fire;
+   * each alert's code and short message.
 
-**Candidate approach.** One LLM API call per field with a strict template. The prompt tells
-the model to use only the given values and to state uncertainty. The output is cached.
+   Both renderers draw only from these strings.
+4. **Renderers**, same signature `render(facts, alerts, lang) -> str`:
+   * `template_summary`: fixed sentences. Deterministic and always available.
+   * `llm_summary`: one Messages API call per polygon for both languages (model from
+     config, default `claude-haiku-5-5`, effort low, JSON output with keys `es` and `en`).
+     The system prompt asks for a 55-word budget per language. It fixes the order (id and
+     area, cane line, date line, the first fire and the fire count, alerts as code +
+     message) and forbids facts outside the JSON. It also forbids confirmation,
+     interpretation, causal and speculative language ("the model reports, it does not
+     conclude"), advice, and restated zero counts.
 
-**Evaluation.** No quantitative metric; this component is cosmetic, not scientific. The
-author checks a sample by hand to make sure every number matches the input.
+**Verifier** (`summary.verify`), run on every text, template included:
+* *required*: the area, the cane line and the date line (case-insensitive), and every
+  alert code, verbatim;
+* *forbidden*: any date, time, number or upper-case code that does not occur in that
+  language's display values. This also rejects ISO dates, dates in the other language's
+  format, spelled-out months ("12 de febrero") and unknown codes;
+* *forbidden phrases* (`FORBIDDEN_PHRASES`, both languages): confirmation and
+  interpretation language ("se confirma", "confirmed", "por lo que", "indica que",
+  "which means", "because", "probably", ...) and "(0)". The phrase "no confirma" in the
+  RADAR_OPTICAL_DISAGREE message is a report and is allowed;
+* at most 70 words (hard limit; the prompt asks for 55).
 
-**Risks.** The model may invent numbers, causes or certainty; to limit this, check that every
-number in the output appears in the input. API cost, latency and key handling. Judges might
-read the summaries as analysis, so they are labelled as generated text everywhere.
+Because the LLM gets pre-formatted strings, a correct output contains only tokens copied
+from its input, and the check can be exact rather than fuzzy. It catches invented or
+altered numbers and dates. The phrase list catches the common interpretation wording seen in the first live run.
+Other unsupported claims made without a number can still pass; the sample is read by
+hand.
+
+**Fallback.** The template text is returned, with `fallback_reason` recorded, when:
+* there is no `ANTHROPIC_API_KEY` in `.env` (`no_api_key`), or the `anthropic` package is
+  missing (`sdk_not_installed`; optional extra `.[llm]`);
+* the call fails (`api_error: <class>`);
+* the stop reason is `refusal` or `max_tokens`;
+* the JSON is malformed (`bad_json`);
+* either language fails the verifier (`verifier_failed`). The rejected text is kept in
+  the record for audit.
+
+The key is read through `zafra.config` and never printed or written.
+
+**Evaluation (2026-10-27).**
+Sample: 58 polygons in both languages (p36, the 38 reference fields, 20 random cane
+segments).
+* Template: 116/116 texts pass the verifier.
+* LLM path, live, with `claude-haiku-5-5` at effort low: 58 calls.
+  - First run, before the prompt fix: 41/58 polygons (70.7 %) passed. All 17 failures
+    were over 70 words, and some passing texts said "confirmed as cane".
+  - After the fix (55-word budget, fixed order, forbidden phrases): **57/58 (98.3 %)**
+    pass in both languages. Median length is 23 words, the longest 70, and 4 of 114
+    texts are over the 55-word budget.
+  - The one fallback (segment cc23748) ended on `stop_reason: max_tokens` at the
+    1,024-token cap, likely spent thinking. No output failed the verifier.
+* Cost: **$0.25 per 1,000 summaries**, from `response.usage` on the 58 calls of the fixed
+  prompt: 79,904 input and 12,596 output tokens in total, i.e. 1,378 input + 217 output
+  per call, at $0.10 / $0.50 per MTok. Output tokens include any thinking.
+
+**Limits, stated plainly.**
+* The summaries are generated text, labelled as such. They add no analysis.
+* Reference fields and segments come from different outputs (field-level 4b/4c vs the
+  area-wide run), so p36's facts differ from those of any segment inside it.
+* Rain at harvest exists only for the 38 reference fields (GPM cache); WorldCover exists
+  only for segments.
+* The verifier is lexical. It checks values, not meaning.
+* One call in 58 hit the 1,024-token cap. The template covers it, but the cap may need
+  raising if this recurs.
+

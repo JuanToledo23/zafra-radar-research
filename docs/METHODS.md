@@ -589,6 +589,107 @@ and CRS.
 2. Run `00_download_nisar.py` and `00_download_firms.py`, then scripts 12-15, then
    `16_transfer_validation.py`, all with `--site <name>`.
 
+## Field summaries and alert rules (exercise 6)
+
+Code: `src/zafra/alerts.py`, `src/zafra/summary.py`, `scripts/17_field_summaries.py`.
+Parameters: `alerts` and `summary` in `configs/<site>.yaml`. Design of the summary and its
+verifier: `docs/AI_COMPONENTS.md` §3.
+
+**Facts.** One dict per polygon, copied from existing outputs.
+* Segments: the delivered harvest layer (script 14, or 15's merged layer if that is
+  delivered) and the segment's own inputs.
+* The 38 reference fields (`fields_v2`, p36 included) use the field-level outputs, not a
+  segment:
+  - date: the 4b xgboost date (`results/4b/dates.csv`); status from the delivered 4e
+    baseline rule on the 4b out-of-fold / non-cane predictions (the dates agree on every
+    dated field, checked at run time);
+  - gate: 4c leave-one-field-out P (`results/4c/loo_predictions.csv`);
+  - fires: `data/fires/fields_v2_fires.csv`;
+  - coherence and HV drop: `fields_v2_cane_features.parquet`;
+  - `segments_covering`: how many delivered segments overlap the field by at least one
+    S2 pixel (0.01 ha), and the share of the field's area they cover (p36: 23 segments,
+    94.5 %);
+  - no WorldCover class (not computed per field).
+* Fires: VIIRS ≤ `fire_buffer_m` (200 m) from the edge, inside the zafra window, with local
+  time (`alerts.timezone`) and overpass (FIRMS `daynight`: night / day). "inside_polygon"
+  means the pixel centre is in the polygon.
+* `last_standing_date`: `first_harvested_date − 2 × date_uncertainty_days`, since the
+  date is the midpoint of that gap.
+* Status in three classes: `dated` (harvested), `no_baseline` (no_baseline,
+  harvested_before_coverage), `no_harvest` (not_detected, not_cane). The original value
+  is kept in `status_detail`.
+* Confidence is split into two facts, stated separately in every summary ("Caña:
+  confianza baja. Fecha: 12 feb 2026 ±2.5 días." / "Cane: low confidence. Date: Feb 12,
+  2026 ±2.5 days."):
+  - `cane_confidence`: confidence in the cane call, gate certainty × agreement of the
+    other gate. It is script 14's rule, computed on the unrounded P. It is given for every
+    cane polygon, dated or not, and is "uncertain" for undated cane that WorldCover maps
+    as trees or grassland;
+  - `date_precision_days`: the ± of the date, equal to `date_uncertainty_days`.
+
+  The harvest GeoJSON keeps its combined `confidence` column for compatibility: the
+  cane_confidence on dated polygons, "none" on undated ones, "uncertain" as above.
+  `cane_confidence` equals that column on all 3976 dated cane segments (checked by
+  script 17).
+
+**Alert rules.** They run only on gated cane polygons. A rule disabled in the config never
+fires.
+
+| code | fires when | Morelos | Brazil | severity |
+|---|---|---|---|---|
+| FIRE_ACTIVE_OUTSIDE_HOURS | a detection's local time is outside the burn window | window 09:00–17:00 | off (no window configured) | warning |
+| BURN_WITHOUT_HARVEST | a detection with no harvested look ≤ `days_after` days after it (or no date at all) | 14 days | 14 days | warning |
+| HARVEST_WITHOUT_FIRE | a dated harvest with no detection in the `days_before` days up to the first harvested look | off (7 days if enabled) | off | info |
+| HIGH_DATE_UNCERTAINTY | `date_uncertainty_days` > `max_days` | 9 days | 9 days | info |
+| RADAR_OPTICAL_DISAGREE | the delivered gate says cane, the other gate's P < `max_other_p` | 0.3 (radar P) | 0.3 (optical P) | warning |
+| NO_BASELINE | status `no_baseline` | – | – | info |
+
+**Burn window:** 09:00–17:00 (Tlaquiltenango), municipal source citation pending;
+configurable per municipality.
+
+`burn_window.municipalities` holds the per-municipality windows. Polygons with no known
+municipality, which today means every segment, use `default` (the same window, assumed)
+and carry `window_confirmed: false` in the alert evidence. São Paulo has no window in the
+config, so FIRE_ACTIVE_OUTSIDE_HOURS is off on the Brazil site.
+
+**FIRE_ACTIVE_OUTSIDE_HOURS reports when a fire was seen, not when it was lit.** VIIRS
+passes over Morelos at about 01:30 and 13:30 local. A night-overpass detection shows that
+a fire was still burning at that hour. It does not give the ignition time: a fire lit at
+16:00 and still burning at 01:30 is flagged, and a fire lit at 18:00 and out by 01:00 is
+never seen. The message names the detection time ("fuego activo a las 01:37, fuera del
+horario permitido (09:00–17:00)" / "fire active at 01:37, outside permitted hours
+(09:00–17:00)"), and the evidence names the overpass. Of the in-season detections within
+200 m of cane, 447 fall at 01–03 h and 3300 at 12–14 h, with nothing in between. Every hit
+on this layer is therefore a night detection.
+
+**HARVEST_WITHOUT_FIRE is disabled on both sites.** It is kept in the code for
+completeness. On Morelos it fired on 3618 of 3976 dated cane segments (91 %). Burning
+before the cut is the norm there, but VIIRS sees a fire near only ~9 % of dated segments
+(375 m pixels, two looks a day, small short fires), so the alert said more about VIIRS
+than about the harvest. The grower reports p36 as burned and cut (date to be confirmed),
+yet the field has no detection within 200 m in the season. The summaries still say "Sin
+fuego VIIRS detectado cerca" / "No VIIRS fire detected nearby" when there is none.
+
+**Morelos 2025-26, 6014 gated cane segments** (`results/6/alert_counts.json`):
+
+| code | severity | segments | share |
+|---|---|---|---|
+| FIRE_ACTIVE_OUTSIDE_HOURS | warning | 337 | 5.6 % |
+| BURN_WITHOUT_HARVEST | warning | 1325 | 22.0 % |
+| HARVEST_WITHOUT_FIRE | disabled | 0 | 0 % |
+| HIGH_DATE_UNCERTAINTY | info | 0 | 0 % |
+| RADAR_OPTICAL_DISAGREE | warning | 1202 | 20.0 % |
+| NO_BASELINE | info | 653 | 10.9 % |
+
+* 44.9 % of the cane segments (2700) have at least one alert, and 39.3 % (2361) at least
+  one warning.
+* *HIGH_DATE_UNCERTAINTY cannot fire on this layer.* With both orbits merged, consecutive
+  looks are at most 12 days apart, so the uncertainty is 2.5, 3.5 or 6 days (2109, 1700
+  and 167 dated segments). The rule is kept for sites or periods with sparser coverage.
+* *BURN_WITHOUT_HARVEST* includes fires on cane segments that are never dated
+  (no_harvest, no_baseline), and fires from a neighbouring field inside the 200 m buffer
+  or the same 375 m pixel.
+
 ## References
 
 * Oliver, C. & Quegan, S. (1998; 2004 reprint). *Understanding Synthetic Aperture Radar

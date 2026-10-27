@@ -37,9 +37,15 @@ dev = ["ruff", "pytest"]
 # Not installed by `make setup`: pip install -e ".[segmentation]". The ViT-B checkpoint
 # (375 MB) is downloaded on first use into data/models/sam/ (git-ignored).
 segmentation = ["torch", "segment-anything", "segment-geospatial"]
+# Exercise 6, LLM field summaries only: without it (or without ANTHROPIC_API_KEY in .env)
+# the summaries use the deterministic template. pip install -e ".[llm]"
+llm = ["anthropic"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+zafra = ["prompts/*.md"]
 
 [tool.ruff]
 line-length = 100

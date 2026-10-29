@@ -40,6 +40,7 @@ these documents the early steps are named by their script, the later ones by exe
 | exercise 5 | `16_transfer_validation.py`, `--site` on 00, 12-16 | transfer to Ribeirão Preto, Brazil |
 | exercise 6 | `17_field_summaries.py` | alert rules and per-field summaries |
 | exercise 7 | `product/` | product skeleton (PostGIS, FastAPI, React + MapLibre) |
+| exercise 9 | `18_web_rasters.py --site` | NISAR backscatter and change rasters and XYZ tiles for the web map |
 
 ## 1. Data and sites
 
@@ -354,6 +355,45 @@ slim file size does not limit it. As built it is a skeleton: empty tables, `/hea
 `/version` only, and a bundled 50-polygon Morelos sample. It starts with no container
 egress (`docker-compose.offline.yml`), and the basemap [29] falls back to a plain
 background offline. The build plan is `product/HACKATHON_PLAN.md`.
+
+### Web raster layers
+
+These are display layers for the map's before/after swipe and change overlay (exercise 9,
+`zafra.rasters`, `scripts/18_web_rasters.py --site <site>`). The analysis does not use
+them; field values always come from field means (section 4).
+
+* **Dates.** Six GCOV dates from one orbit per site (`web_rasters` in the site config).
+  Morelos, ascending t19: 2025-11-23, 12-29, 2026-01-22, 02-15, 03-11 and 04-28. They
+  bracket the harvest front, from first cuts in mid-December through the January peak
+  to the last cuts in early May. Ribeirão Preto, ascending t146: 2026-06-24, 07-06,
+  08-11, 09-04, 09-28 and 10-22. Ascending has 10 of 11 cycles (descending 9), 10 looks
+  (descending 8) and the site's own UTM 23S grid. **The 07-18 ascending scene is corrupt
+  over this AOI.** It shows streaks and no field structure. Its segment HV 95th percentile
+  is 2.6 dB below its neighbours and its ENL is 4.9 (other dates about 3.4). It is
+  replaced by 07-06. The exercise-5 detector still uses that scene: its 1 466 segments
+  dated 07-30 come from the 07-18 → 08-11 pair (VALIDATION.md) and should be rechecked.
+* **Processing.** A 5 × 5 boxcar mean of linear HV and HH power over pixels the GCOV mask
+  marks valid; masked pixels stay nodata. Then bilinear resampling to EPSG:3857 at the
+  zoom-14 pixel size (9.55 m in Mercator units), on a grid snapped to whole z14 tiles,
+  and conversion to dB. Values are clipped to a fixed stretch per kind: HV −25 … −8 dB,
+  HH −18 … −2 dB, cross-ratio HV − HH −15 … −3 dB, change −10 … +3 dB. At most 1.4 % of
+  pixels are clipped, except 3 % at +3 dB in Brazil's two late-season change layers.
+  Change layers are differences of the unclipped dB values:
+  `hv_change_<d1>_<d2>` for consecutive dates, and `hv_change_season` = lowest HV over
+  the six dates minus the first. The season layer also takes the minimum of six speckled
+  values, so stable ground reads about −1 dB (Morelos median) rather than 0.
+* **Outputs.** Float32 COGs `data/rasters/<site>/<layer>.tif` (NaN nodata, deflate) and
+  palette PNG XYZ tiles `data/tiles/<site>/<layer>/{z}/{x}/{y}.png`, zoom 10-14. Tiles
+  use a grey ramp for backscatter and blue-white-red for change (white at 0 dB); nodata is
+  transparent and overview zooms average the dB values. `tiles_index.json` lists the
+  layers, dates, bounds, ramps, stretch and units. There are 24 layers per site. Morelos
+  is 1.18 GB of COGs and 311 MB of tiles (6 360 tiles); Ribeirão Preto is 1.16 GB and
+  311 MB (6 288 tiles). Each site takes about 70 s.
+* **Check** (`results/9/raster_check.md`). Over the polygons of p36, p16 and p10, the
+  raster's mean (in linear power) matches the 4b field means within 0.12 dB on all 18
+  field-dates. A single centroid sample is within 1 dB on only 9 of 18, because the
+  fields are not uniform (p36 before the cut: +2-3 dB). Map popups should therefore
+  show field means, not pixel values.
 
 ## 10. What we tried and rejected
 

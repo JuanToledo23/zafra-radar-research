@@ -20,7 +20,9 @@ A site is one area of interest and one harvest season. The YAML holds:
 * reference_fields: hand-traced polygons to score the segmentation against (null: none);
 * paths: every input and output file of scripts 12-15, relative to the repo root;
 * alerts, summary (optional, exercise 6): local time zone, burn window and alert-rule
-  parameters (zafra.alerts); model and limits of the field summaries (zafra.summary).
+  parameters (zafra.alerts); model and limits of the field summaries (zafra.summary);
+* web_rasters (optional, exercise 9): GCOV source, dates, boxcar size and tile zooms of
+  the web map layers (zafra.rasters, scripts/18_web_rasters.py).
 
 The trained models are not part of a site: the cane gate and the harvest detector are
 always the exercise-4b/4c models fitted on the Morelos fields_v2 polygons.
@@ -88,6 +90,7 @@ class Site:
     check_windows: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = field(default_factory=dict)
     alerts: dict = field(default_factory=dict)
     summary: dict = field(default_factory=dict)
+    web_rasters: dict = field(default_factory=dict)
 
     @property
     def metric_crs(self) -> str:
@@ -206,6 +209,7 @@ def load_site(name: str = DEFAULT_SITE, register: bool = True) -> Site:
         },
         alerts=c.get("alerts") or {},
         summary=c.get("summary") or {},
+        web_rasters=c.get("web_rasters") or {},
     )
     if register:
         site.register()

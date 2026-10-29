@@ -21,6 +21,9 @@ recomputed: `data/results/harvest_map_2025_26_slim.geojson` (and the Brazil one)
 - [ ] Inputs on disk for both sites:
   - [ ] Morelos: `data/results/harvest_map_2025_26_slim.geojson`, `results/4e/weekly.csv`
   - [ ] Brazil: `data/results/brazil/harvest_map_slim.geojson`, `results/5_brazil/weekly.csv`
+- [ ] NISAR raster tiles present for both sites (exercise 9, `scripts/18_web_rasters.py
+      --site <site>`, ~70 s each): `data/tiles/<site>/tiles_index.json` and its 24 layer
+      folders under `data/tiles/morelos/` and `data/tiles/brazil/`
 
 ## Saturday: data in, endpoints out
 
@@ -55,8 +58,21 @@ Saturday total: ~5 h
 - [ ] Weekly harvests vs fires chart from `/weekly` (30)
 - [ ] Alerts list (click → fly to segment) (40)
 - [ ] Summary text in the panel (es / en) (20)
+- [ ] **Radar swipe** (tiles already on disk, nothing to compute): serve
+      `data/tiles/<site>/` as static files, one MapLibre `raster` source per layer from
+      `tiles_index.json` (`url_template`, `minzoom`/`maxzoom`, `bounds`), a before / after
+      date pair with a swipe control (two maps synced, or a clip on the top layer), the
+      change layer `hv_change_<d1>_<d2>` / `hv_change_season` as an overlay with its
+      legend from the index `ramp` and `stretch` (60)
+- [ ] **Polarization panel**: HH, HV and cross-ratio (HV - HH) curves per field from
+      `segment_series` (orbits never averaged), harvest date marked (30)
+- [ ] **L-band vs C-band panel** for the labelled fields: NISAR HV next to Sentinel-1 VH.
+      Only p36 has an S1 series (`data/results/morelos/s1_series.parquet`, from script 09,
+      2024-10 .. 2025-06, a season *before* the NISAR one; plus 104 neighbour segments).
+      An overlapping 2025-26 S1 series for the 38 fields needs a new Earth Engine pull
+      first (script 09's `s1_vh_series`) (45, + pull)
 - [ ] Site switcher (Morelos / Brazil): fit to the site bbox, reload tiles and weekly (30)
 - [ ] Offline re-check with `docker-compose.offline.yml` on the loaded database (15)
 - [ ] Screenshots / screen recording for the video (`scripts/screenshot.mjs` per view) (40)
 
-Sunday total: ~5.7 h
+Sunday total: ~7.9 h (5.7 h without the three radar panels)

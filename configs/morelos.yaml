@@ -87,3 +87,13 @@ summary:
   max_words: 70  # verifier hard limit
   word_budget: 55  # what the prompt asks for
   price_usd_per_mtok: {input: 0.10, output: 0.50}  # Anthropic list price, Oct 2026
+
+# Exercise 9: web map raster layers (zafra.rasters, scripts/18_web_rasters.py). Six
+# ascending dates bracketing the harvest front (results/4e/weekly.csv: first harvests in
+# mid-Dec, peak Jan, steady through Mar, last in early May). Ascending only: one geometry,
+# so date-to-date changes are not viewing-angle changes.
+web_rasters:
+  source: gcov_asc
+  dates: ["2025-11-23", "2025-12-29", "2026-01-22", "2026-02-15", "2026-03-11", "2026-04-28"]
+  boxcar: 5  # pixels (10 m GCOV grid): ~50 m window
+  zooms: [10, 14]

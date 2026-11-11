@@ -5,6 +5,7 @@ name: zafra-radar
 x-db-env: &db-env
   POSTGRES_DB: ${POSTGRES_DB:-zafra}
   POSTGRES_USER: ${POSTGRES_USER:-zafra}
+  # local-only default for the demo database (never exposed beyond localhost); not a secret
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zafra_local_only}
 
 services:
@@ -55,7 +56,8 @@ services:
       API_PROXY_TARGET: http://api:8000
       VITE_POLL: "1"
     ports:
-      - "${WEB_PORT:-5173}:5173"
+      # host 5174 (5173 is often taken by another local Vite app); the container listens on 5173
+      - "${WEB_PORT:-5174}:5173"
     volumes:
       - ./web:/app
       - /app/node_modules

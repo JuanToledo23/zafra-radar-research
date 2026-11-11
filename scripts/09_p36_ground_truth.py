@@ -1,4 +1,4 @@
-"""Ground-truth check for p36 (La Marometa, Tlaquiltenango) and a harvest-front test.
+"""Ground-truth check for p36 (grower-reported field (Tlaquiltenango)) and a harvest-front test.
 
     python scripts/09_p36_ground_truth.py [--max-field-cloud 10] [--from-cache] [--no-write]
 
@@ -497,7 +497,10 @@ def plot_series(s1, ndvi, fires_near, max_field_cloud, out) -> None:
     axn.xaxis.set_major_formatter(mdates.DateFormatter("%b\n%Y"))
     axn.set_xlim(pd.Timestamp(S1_START), pd.Timestamp(S1_END))
     axn.set_xlabel("date (UTC)")
-    fig.suptitle(f"{FIELD_ID} La Marometa, zafra 2024/25: Sentinel-1 VH, Sentinel-2 NDVI, VIIRS")
+    fig.suptitle(
+        f"{FIELD_ID}, grower-reported field (Tlaquiltenango), zafra 2024/25:\n"
+        "Sentinel-1 VH, Sentinel-2 NDVI, VIIRS"
+    )
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     plt.close(fig)
@@ -601,7 +604,8 @@ def plot_front(p36, res, out) -> None:
     ax.set_xlabel("longitude")
     ax.set_ylabel("latitude")
     ax.set_title(
-        "Harvest front 2025 around La Marometa: S2 harvest date of SNIC cane segments\n"
+        "Harvest front 2025 around the grower-reported field (Tlaquiltenango):\n"
+        "S2 harvest date of SNIC cane segments\n"
         "(background: S2 true colour, median 2025-03-20..04-10)",
         fontsize=10,
     )

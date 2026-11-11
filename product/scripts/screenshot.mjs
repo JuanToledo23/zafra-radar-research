@@ -1,14 +1,14 @@
 // Headless check of the map shell: load the page, wait for the map to go idle, click the
 // polygon nearest the map centre, move the slider, save a screenshot and print a
 // JSON report. --offline aborts every request that is not to localhost, as with wifi off.
-//   node screenshot.mjs [--url http://localhost:5173] [--out ../docs/skeleton.png] [--offline]
+//   node screenshot.mjs [--url http://localhost:5174] [--out ../docs/skeleton.png] [--offline]
 import { chromium } from "playwright";
 
 const arg = (name, dflt) => {
   const i = process.argv.indexOf(name);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const url = arg("--url", "http://localhost:5173");
+const url = arg("--url", `http://localhost:${process.env.WEB_PORT ?? "5174"}`);
 const out = arg("--out", new URL("../docs/skeleton.png", import.meta.url).pathname);
 const offline = process.argv.includes("--offline");
 

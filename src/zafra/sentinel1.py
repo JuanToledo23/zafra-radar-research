@@ -19,9 +19,13 @@ and 41) with different incidence angles, so they are separate series, like NISAR
 
 from __future__ import annotations
 
-import ee
 import numpy as np
 import pandas as pd
+
+try:  # Earth Engine is the `ee` extra; clean() works without it
+    import ee
+except ImportError:
+    ee = None
 
 COLLECTION = "COPERNICUS/S1_GRD"
 POLS = ("VH", "VV")
@@ -95,6 +99,8 @@ def field_series(geom, start: str, end: str) -> pd.DataFrame:
     `geom` is a shapely polygon in lon/lat. Columns: date, orbit, rel_orbit, platform,
     vh_db, vv_db, vh_linear, vv_linear, valid_px, image_id.
     """
+    if ee is None:
+        raise ImportError('field_series needs Earth Engine: pip install -e ".[ee]"')
     region = ee.Geometry(geom.__geo_interface__)
     frames = []
     for orbit_pass, orbit in PASSES.items():

@@ -145,7 +145,10 @@ def plot_p36(series: pd.DataFrame, labels: pd.DataFrame, gt, out) -> None:
         ax.plot(t["date"], t["db"], color=c, lw=2, ls="-" if nisar else "--",
                 marker="o" if nisar else "s", ms=4.5, label=name)  # fmt: skip
     ax.set_ylabel("field mean backscatter (dB)")
-    ax.set_title("p36 La Marometa (21 ha), zafra 2025-26: NISAR L-band HV vs Sentinel-1 C-band VH")
+    ax.set_title(
+        "p36, grower-reported field (Tlaquiltenango), 21 ha, zafra 2025-26:\n"
+        "NISAR L-band HV vs Sentinel-1 C-band VH"
+    )
     ax.grid(axis="y", color="#e6e6e6", lw=0.8)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)

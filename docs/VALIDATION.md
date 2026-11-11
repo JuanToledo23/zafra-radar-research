@@ -28,7 +28,8 @@ not accuracy against field visits.
 
 ## Ground truth: p36
 
-p36 (La Marometa, Tlaquiltenango, 21.4 ha) is the only field with a grower report. Code:
+p36 (grower-reported field (Tlaquiltenango), 21.4 ha) is the only field with a grower
+report. The grower is not named; the report is used with permission. Code:
 `scripts/09_p36_ground_truth.py` (run log and figures in `outputs/front/`, not versioned).
 
 | signal | 2024-25 (grower: burned and cut 2025-03-16) | 2025-26 (grower: burned and cut 2026-02-26) |
@@ -129,8 +130,8 @@ false alarms after gating.
   and −19.2 dB `no_cana`) and a low coherence minimum (0.21 vs 0.32 `dudoso`). The largest HV
   drop often falls after Apr 20 (late-April storms) rather than at the cut (8 of 26 cane
   fields), so `joint_collapse` helps less than expected.
-* **La Marometa (p36 and neighbours n02, n09) has clear NDVI cuts with a weak radar
-  response:** largest HV step −1.6, −0.9, −1.1 dB (cane median −3.5 dB); coherence minimum
+* **The grower-reported field (Tlaquiltenango), p36, and its neighbours n02 and n09 have
+  clear NDVI cuts with a weak radar response:** largest HV step −1.6, −0.9, −1.1 dB (cane median −3.5 dB); coherence minimum
   0.32, 0.44, 0.45 (cane median 0.21). The cause is unknown.
 * On 2024-25 (optical only, no radar), B scores 0.92 (24/26 cane, 1 false positive).
 
@@ -287,6 +288,26 @@ Integration smoke test: `pytest -m integration tests/test_product_smoke.py`.
 | map idle in headless Chromium, online / offline | 2.7 s / 1.8 s |
 | image sizes: api / web / postgis | 309 / 463 / 853 MB |
 
+## Exercise 9: web rasters, scene quality and L- vs C-band
+
+* **Web raster check** ([`results/9/raster_check.md`](../results/9/raster_check.md),
+  `scripts/18_web_rasters.py`). The HV raster's mean over the polygons of p36, p16 and p10
+  matches the exercise-4b field means to within 0.12 dB on every date. A single centroid
+  value differs by up to 2.9 dB, because the boxcar footprint (~50 m) is smaller than the
+  field.
+* **Scene quality** (`results/4e/scene_quality.csv`, `results/5_brazil/scene_quality.csv`,
+  METHODS section 4). 1 of 48 acquisitions is flagged over both sites: Brazil ascending
+  2026-07-18, which is excluded.
+* **L- vs C-band at harvest** ([`results/9/l_vs_c.md`](../results/9/l_vs_c.md),
+  `scripts/19_l_vs_c.py`). Over the 26 labelled cane fields, the median drop in the 30 days
+  around the NDVI harvest window is −2.5 dB for NISAR HV ascending and −1.9 dB for
+  descending. For Sentinel-1 VH it is −2.2 to −2.7 dB per track. The co-polarized channels
+  barely move (median −0.5 to +0.5 dB). Paired per field, NISAR HV ascending minus
+  Sentinel-1 VH is +0.40 dB (ascending t78) and −0.40 / −0.36 dB (descending t143 / t41) in
+  median. On these fields L-band does not show a larger cross-pol drop at the cut than
+  C-band. The reference is optical (NDVI windows), and absolute levels differ (gamma-0 vs
+  sigma-0); only the drops are compared.
+
 ## Known limitations
 
 1. **Small, single-season sample.** 26 labelled cane fields and 12 non-cane fields, one
@@ -301,8 +322,8 @@ Integration smoke test: `pytest -m integration tests/test_product_smoke.py`.
    behind gate B, 1 of 12 (p5, probably cane).
 5. **The delivered Morelos gate is partly circular** (37/38 against its own NDVI labelling
    rule). The independent radar gate drops p36 (P = 0.20).
-6. **Weak radar cuts at La Marometa** (HV step −0.9 to −1.6 dB vs cane median −3.5 dB);
-   cause unknown.
+6. **Weak radar cuts at the grower-reported field (Tlaquiltenango)** (HV step −0.9 to
+   −1.6 dB vs cane median −3.5 dB); cause unknown.
 7. **No dates before coverage allows.** Morelos: no date before Dec 20 (NISAR starts Nov 18 /
    Nov 23, and the baseline needs 3 standing looks). Brazil: nothing cut before mid-August
    is dated; 2 250 cane segments (9 242 ha) are `no_baseline`.

@@ -209,7 +209,10 @@ def plot_p36(site, raster_dir: Path, d0: str, d1: str, out: Path) -> None:
         ax.set_xlabel("")
         ax.set_ylabel("")
     fig.colorbar(im, ax=axes, shrink=0.8, label="HV gamma-0 (dB), 5x5 boxcar")
-    fig.suptitle("p36 La Marometa (21 ha), before / after the 2026 harvest (ground truth 02-26)")
+    fig.suptitle(
+        "p36, grower-reported field (Tlaquiltenango), 21 ha:\n"
+        "before / after the 2026 harvest (ground truth 02-26)"
+    )
     fig.savefig(out, dpi=130)
     plt.close(fig)
 

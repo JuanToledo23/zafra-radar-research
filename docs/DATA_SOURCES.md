@@ -150,8 +150,20 @@ terms before redistributing anything. Citations [n] are in [REFERENCES.md](REFER
 - **Dates used:** zafras 2024-25 and 2025-26.
 - **Access:** versioned in the repository: `data/fields/fields_v2.geojson`,
   `data/labels/fields_v2_labels.csv`.
-- **Licence / terms:** project data. TODO (author): state the licence of the polygons and
-  the terms under which the grower's report may be shared.
+- **Licence / terms:** the author's polygons, labels and harvest windows, and everything in
+  `results/`, are CC BY 4.0 (`data/fields/LICENSE`, `results/LICENSE`). Third-party layers
+  and anything derived from them keep their upstream terms (entries above). The grower's
+  report is used with permission. The grower is not named, and the field is identified only
+  as a grower-reported field in Tlaquiltenango.
+
+## Data licence of this repository
+
+- Code: MIT ([LICENSE](../LICENSE)).
+- Author-made data (reference polygons, labels, harvest windows) and committed results
+  (reports, tables, figures): CC BY 4.0, Copyright (c) 2026 Juan Toledo.
+- Third-party data (NISAR, Sentinel-1/2, FIRMS, WorldCover, IMERG, MapBiomas) are not
+  redistributed here except as derived per-field statistics and figures. They keep their
+  upstream terms, with the credit lines given in each entry above.
 
 ## Sugar-sector statistics (context only)
 

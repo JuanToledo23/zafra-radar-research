@@ -1,45 +1,73 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "zafra-radar"
+name = "zafra-radar-research"
 version = "0.1.0"
-description = "Per-field sugarcane harvest and burning detection from NISAR L-band SAR (NASA Space Apps 2026)."
+description = "Research toolkit for per-field sugarcane harvest detection with NISAR L-band SAR (GCOV backscatter, GUNW coherence), validated in Morelos, Mexico and Ribeirão Preto, Brazil."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Juan Toledo" }]
 requires-python = ">=3.11"
+keywords = [
+    "nisar", "sar", "l-band", "sugarcane", "harvest-detection", "remote-sensing",
+    "earth-observation", "agriculture", "space-apps",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+# Core: read NISAR files, zonal statistics, features, cane gate, detector, plots. The
+# downloaders, Earth Engine (Sentinel-1/2, WorldCover) and the LLM are extras below.
 dependencies = [
     "h5py",
     "numpy",
     "pandas",
+    "pyarrow",
     "geopandas",
     "shapely",
     "rasterio",
+    "rasterstats",
     "pyproj",
-    "matplotlib",
-    "python-dotenv",
-    "requests",
-    "asf_search",
-    "earthengine-api",
-    "geemap",
-    "tqdm",
+    "scipy",
+    "scikit-image",
     "scikit-learn",
     "xgboost",
     "joblib",
-    "scikit-image",
-    "rasterstats",
+    "matplotlib",
+    "pillow",
+    "pyyaml",
+    "python-dotenv",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest"]
-# Exercise 4d, SAM variant only (the delivered classical segmentation needs none of this).
-# Not installed by `make setup`: pip install -e ".[segmentation]". The ViT-B checkpoint
-# (375 MB) is downloaded on first use into data/models/sam/ (git-ignored).
-segmentation = ["torch", "segment-anything", "segment-geospatial"]
+# scripts/00_download_*.py: NISAR from ASF, FIRMS fires
+download = ["asf_search", "requests"]
+# Sentinel-1/2, WorldCover, IMERG via Earth Engine (zafra.optical, zafra.sentinel1)
+ee = ["earthengine-api", "requests"]
 # Exercise 6, LLM field summaries only: without it (or without ANTHROPIC_API_KEY in .env)
-# the summaries use the deterministic template. pip install -e ".[llm]"
+# the summaries use the deterministic template.
 llm = ["anthropic"]
+# Exercise 4d, SAM variant only (the delivered classical segmentation needs none of this).
+# The ViT-B checkpoint (375 MB) is downloaded on first use into data/models/sam/ (git-ignored).
+sam = ["torch", "segment-anything", "segment-geospatial"]
+dev = ["ruff", "pytest"]
+all = ["zafra-radar-research[download,ee,llm,sam,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/OWNER/zafra-radar-research"
+Documentation = "https://github.com/OWNER/zafra-radar-research/tree/main/docs"
+Issues = "https://github.com/OWNER/zafra-radar-research/issues"
+Changelog = "https://github.com/OWNER/zafra-radar-research/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

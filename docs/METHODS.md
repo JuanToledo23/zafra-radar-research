@@ -98,8 +98,8 @@ labels each from its Sentinel-2 NDVI phenology (a plateau ≥ 0.6, at most one c
 season, a high peak) plus the author's visual tracing: 26 `cana`, 11 `dudoso` (no call),
 1 `no_cana`. For each cane field it also writes the NDVI harvest window
 (`harvest_window_start/end`): the last clear scene ≥ 0.5 and the first ≤ 0.35. p36's
-window comes from script 09. p36 (La Marometa, Tlaquiltenango, 21.4 ha) is the only field
-with a grower-reported harvest. None of the labels comes from a field visit.
+window comes from script 09. p36 (grower-reported field (Tlaquiltenango), 21.4 ha) is the
+only field with a grower-reported harvest. None of the labels comes from a field visit.
 
 ### Segmentation of the AOI
 

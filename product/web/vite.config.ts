@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: "0.0.0.0",
-    port: 5173,
+    port: 5173, // inside the container; compose publishes it on host WEB_PORT (default 5174)
     strictPort: true,
     // Bind mounts from macOS do not deliver inotify events reliably: poll instead.
     watch: { usePolling: process.env.VITE_POLL === "1", interval: 300 },

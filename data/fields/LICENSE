@@ -1,0 +1,15 @@
+Copyright (c) 2026 Juan Toledo
+
+Except where noted below, the reference field polygons, labels and harvest windows in this folder (and data/labels/) are licensed under the
+Creative Commons Attribution 4.0 International License (CC BY 4.0).
+
+  Summary:    https://creativecommons.org/licenses/by/4.0/
+  Legal code: https://creativecommons.org/licenses/by/4.0/legalcode
+
+You may share and adapt them for any purpose, including commercially, provided you give
+appropriate credit (cite this repository, see CITATION.cff), link to the licence and
+indicate if changes were made.
+
+Third-party data keep their upstream terms (NISAR and FIRMS: NASA open data; Sentinel-1/2:
+Copernicus terms; ESA WorldCover and MapBiomas: CC BY 4.0). See docs/DATA_SOURCES.md for
+the credit lines. The source code is MIT-licensed (LICENSE at the repository root).

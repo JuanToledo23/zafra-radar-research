@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software or its results, please cite it as below."
+title: "zafra-radar-research: NISAR L-band toolkit for sugarcane harvest detection"
+type: software
+authors:
+  - family-names: Toledo
+    given-names: Juan
+version: 0.1.0
+date-released: 2026-11-12
+license: MIT
+repository-code: "https://github.com/OWNER/zafra-radar-research"
+keywords:
+  - nisar
+  - sar
+  - l-band
+  - sugarcane
+  - harvest
+  - remote-sensing
+  - earth-observation
+  - agriculture
+abstract: >-
+  Per-field sugarcane harvest dates from NISAR L2 GCOV backscatter and L2 GUNW coherence,
+  with a cane/non-cane gate, a trained harvest detector, per-date uncertainty and checks
+  against VIIRS fires, Sentinel-2 NDVI and MapBiomas. Sites: Morelos (Mexico) and
+  Ribeirão Preto (Brazil). NISAR data are provisional; references are optical, not field
+  visits.

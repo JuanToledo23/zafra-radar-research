@@ -187,6 +187,37 @@ log is itemised per exercise from exercise 4b on; earlier sessions (exercises 1-
   author's written brief. No code, data or results changed.
   - Reference details it could not find in the repository are marked "[URL pending]"
     rather than filled in.
+- 2026-10-28: Exercise 9, web raster layers. Following the author's brief, Claude Code
+  wrote `src/zafra/rasters.py`, `scripts/18_web_rasters.py` and their tests. They produce
+  six-date NISAR HV / HH / cross-ratio and HV-change COGs and XYZ tiles per site, a
+  `tiles_index.json`, and a raster sanity check against the 4b field means
+  (`results/9/raster_check.md`). The Brazil 2026-07-18 scene was left out of the web dates
+  after it was seen to be corrupt.
+- 2026-10-29: Exercise 9 follow-ups, from the author's brief:
+  - Scene-quality check (`src/zafra/scene_quality.py`) and per-site exclusion
+    (`nisar.exclude_dates`, `zonal.drop_excluded`). Excluding the Brazil 07-18 scene was the
+    author's decision. Brazil was re-run (scripts 14-16) and the documents were updated.
+    The check only flags; the exclusion is written in the site config.
+  - Demo API host port moved from 8000 to 8010 (author's decision; 8000 was taken by
+    another local container).
+  - Sentinel-1 2025-26 VH / VV series for the 38 reference fields (`src/zafra/sentinel1.py`,
+    `scripts/19_l_vs_c.py`) and the L- vs C-band drop at harvest (`results/9/l_vs_c.md`).
+    Orbits and tracks are kept apart, as for NISAR.
+- 2026-11-11: Library-readiness audit and publication pass for v0.1.0 (author's brief).
+  Claude Code audited the repository (`git` status, tests, secrets in history, packaging,
+  documents) and reported. The author decided every change below:
+  - The pending work went into three commits. Claude Code found that one Sentinel-1 test
+    sat in the scene-quality commit; at the author's request it was moved, and the three
+    local commits were rewritten.
+  - The Brazil gate was switched to optical (B), and scripts 14-16 and the documents were
+    re-run and updated.
+  - The p36 parcel name was replaced by "grower-reported field (Tlaquiltenango)".
+  - CC BY 4.0 data licence, README rewrite, packaging (`zafra-radar-research`, extras),
+    CI, citation and community files, and housekeeping.
+  - While doing this, Claude Code found that `pyyaml`, `pyarrow`, `scipy` and `pillow`
+    were imported but not declared, and that `zafra.sentinel1` imported Earth Engine at
+    module level. They are now declared, and the import is lazy, so CI runs without the
+    `ee` extra.
 
 ---
 

@@ -9,6 +9,8 @@ repository (link to be added).
 [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey.svg)](#data-licence)
 [![Python 3.11–3.12](https://img.shields.io/badge/python-3.11%E2%80%933.12-blue.svg)](pyproject.toml)
 
+Maintained by Juan Toledo.
+
 The library dates the harvest of individual sugarcane fields from NISAR L-band radar
 (GCOV backscatter and GUNW interferometric coherence). Every date comes with its
 uncertainty and is checked against satellite fire detections, Sentinel-2 and a land-cover
@@ -267,6 +269,12 @@ in [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).
 - **MapBiomas** Brazil, Collection 10 land cover.
 - **ESA WorldCover** 2021 (Zanaga et al., 2022).
 - **Google Earth Engine**, for Sentinel and WorldCover access.
+
+## Author
+
+Juan Toledo — full-stack developer, Zacatepec/Morelos, Mexico. Site:
+https://juantoledo.com.mx · GitHub: [@JuanToledo23](https://github.com/JuanToledo23) ·
+LinkedIn: (link to be added).
 
 ## References
 

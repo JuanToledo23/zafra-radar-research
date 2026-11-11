@@ -64,10 +64,10 @@ dev = ["ruff", "pytest"]
 all = ["zafra-radar-research[download,ee,llm,sam,dev]"]
 
 [project.urls]
-Homepage = "https://github.com/OWNER/zafra-radar-research"
-Documentation = "https://github.com/OWNER/zafra-radar-research/tree/main/docs"
-Issues = "https://github.com/OWNER/zafra-radar-research/issues"
-Changelog = "https://github.com/OWNER/zafra-radar-research/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/JuanToledo23/zafra-radar-research"
+Documentation = "https://github.com/JuanToledo23/zafra-radar-research/tree/main/docs"
+Issues = "https://github.com/JuanToledo23/zafra-radar-research/issues"
+Changelog = "https://github.com/JuanToledo23/zafra-radar-research/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

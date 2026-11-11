@@ -4,7 +4,7 @@ Research library: NISAR L-band toolkit for per-field sugarcane harvest detection
 before NASA Space Apps 2026 to learn the data; the hackathon application is a separate
 repository (link to be added).
 
-[![CI](https://github.com/OWNER/zafra-radar-research/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/zafra-radar-research/actions/workflows/ci.yml)
+[![CI](https://github.com/JuanToledo23/zafra-radar-research/actions/workflows/ci.yml/badge.svg)](https://github.com/JuanToledo23/zafra-radar-research/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey.svg)](#data-licence)
 [![Python 3.11–3.12](https://img.shields.io/badge/python-3.11%E2%80%933.12-blue.svg)](pyproject.toml)
@@ -29,7 +29,7 @@ only 8.7 % of the harvests dated here
 ## Quickstart (60 seconds, no downloads)
 
 ```bash
-git clone https://github.com/OWNER/zafra-radar-research.git
+git clone https://github.com/JuanToledo23/zafra-radar-research.git
 cd zafra-radar-research
 make setup    # .venv with the library + download/ee/dev extras (uses uv if installed)
 make test     # ~115 tests on synthetic data and the committed results
@@ -249,7 +249,7 @@ repository" button gives APA and BibTeX):
 
 > Toledo, J. (2026). *zafra-radar-research: NISAR L-band toolkit for sugarcane harvest
 > detection* (Version 0.1.0) [Computer software].
-> https://github.com/OWNER/zafra-radar-research
+> https://github.com/JuanToledo23/zafra-radar-research
 
 Please also cite the data you use (NISAR, Sentinel, FIRMS, WorldCover, MapBiomas) as given
 in [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).

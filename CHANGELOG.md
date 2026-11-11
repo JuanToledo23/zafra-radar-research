@@ -46,4 +46,4 @@ hackathon application is a separate repository.
   gate A is kept as radar evidence).
 - The demo API is published on host port 8010 and the web app on 5174.
 
-[0.1.0]: https://github.com/OWNER/zafra-radar-research/releases/tag/v0.1.0
+[0.1.0]: https://github.com/JuanToledo23/zafra-radar-research/releases/tag/v0.1.0

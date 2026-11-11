@@ -70,11 +70,10 @@ Saturday total: ~5 h
       legend from the index `ramp` and `stretch` (60)
 - [ ] **Polarization panel**: HH, HV and cross-ratio (HV - HH) curves per field from
       `segment_series` (orbits never averaged), harvest date marked (30)
-- [ ] **L-band vs C-band panel** for the labelled fields: NISAR HV next to Sentinel-1 VH.
-      Only p36 has an S1 series (`data/results/morelos/s1_series.parquet`, from script 09,
-      2024-10 .. 2025-06, a season *before* the NISAR one; plus 104 neighbour segments).
-      An overlapping 2025-26 S1 series for the 38 fields needs a new Earth Engine pull
-      first (script 09's `s1_vh_series`) (45, + pull)
+- [ ] **L-band vs C-band panel** for the 38 labelled fields: NISAR HV / HH per orbit next
+      to Sentinel-1 VH / VV per track (asc t78, desc t143, desc t41; never averaged) from
+      `data/results/morelos/s1_series_2025_26.parquet` (scripts/19_l_vs_c.py), harvest
+      window marked; drops at harvest in `results/9/l_vs_c.md` (45)
 - [ ] Site switcher (Morelos / Brazil): fit to the site bbox, reload tiles and weekly (30)
 - [ ] Offline re-check with `docker-compose.offline.yml` on the loaded database (15)
 - [ ] Screenshots / screen recording for the video (`scripts/screenshot.mjs` per view) (40)

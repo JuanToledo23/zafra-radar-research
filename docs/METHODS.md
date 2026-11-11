@@ -212,6 +212,18 @@ features are causal (they use only that acquisition and earlier ones).
 | slope_hv_3, sharpness | HV slope over the previous 3 looks; last step minus that trend | no (section 10) |
 | rain_3d_mm, gap_days | GPM rain in the 3 days before; days since the previous look | no (section 10) |
 
+**Scene quality and excluded acquisitions** (`zafra.scene_quality`, script 14). Every
+GCOV acquisition is summarised over the AOI by two numbers: the 95th percentile of the
+segments' HV field means and the median ENL. Each is compared with the median of up to
+two acquisitions before and two after it in the same orbit. A scene is flagged when HV p95
+moves more than 2 dB or ENL more than 30 %. The harvest moves both slowly; a corrupt scene
+moves them at once. The check only flags (`<results_dir>/scene_quality.csv`). Exclusion is
+a decision written in the site config (`nisar.exclude_dates`: date, sources, reason) after
+looking at the image. `zafra.zonal.drop_excluded` then removes the GCOV rows and every GUNW
+pair that has the date as reference or secondary. One scene is flagged on either site:
+Ribeirão Preto ascending 2026-07-18 (HV p95 −2.6 dB, ENL +46 %), which is excluded.
+Morelos has none (30 acquisitions; the largest deviations are 0.7 dB and 24 %).
+
 ## 5. Harvest detector
 
 Code: `src/zafra/detect/model.py`, driver `scripts/10_harvest_classifier.py`, tests
@@ -342,7 +354,7 @@ layer.
 polygons, every status; 5 m simplification, coordinates rounded to 1e-6°; 12 columns
 (segment_id, area_ha, p_cane, p_cane_radar, p_cane_optical, harvest_date,
 date_uncertainty_days, status, confidence, hv_drop_db, coh_min, wc_disagrees). Morelos:
-6 014 polygons, 8.5 MB. Ribeirão Preto: 21 171 polygons, 41.8 MB. Non-cane segments are
+6 014 polygons, 8.5 MB. Ribeirão Preto: 13 411 polygons, 27.1 MB. Non-cane segments are
 left out (with them the Morelos file is 36-61 MB). The weekly series for the dashboard is
 `results/4e/weekly.csv`.
 
@@ -370,8 +382,7 @@ them; field values always come from field means (section 4).
   (descending 8) and the site's own UTM 23S grid. **The 07-18 ascending scene is corrupt
   over this AOI.** It shows streaks and no field structure. Its segment HV 95th percentile
   is 2.6 dB below its neighbours and its ENL is 4.9 (other dates about 3.4). It is
-  replaced by 07-06. The exercise-5 detector still uses that scene: its 1 466 segments
-  dated 07-30 come from the 07-18 → 08-11 pair (VALIDATION.md) and should be rechecked.
+  replaced by 07-06, and excluded from the radar tables too (section 4, scene quality).
 * **Processing.** A 5 × 5 boxcar mean of linear HV and HH power over pixels the GCOV mask
   marks valid; masked pixels stay nodata. Then bilinear resampling to EPSG:3857 at the
   zoom-14 pixel size (9.55 m in Mercator units), on a grid snapped to whole z14 tiles,

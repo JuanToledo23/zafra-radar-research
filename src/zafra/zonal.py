@@ -211,6 +211,24 @@ def radar_timeseries(
     return gc, pd.concat(coh, ignore_index=True)
 
 
+def drop_excluded(gc, coh, site):
+    """Remove the site's excluded acquisitions (Site.nisar_exclude) from radar_timeseries
+    output: GCOV rows of the orbit on that date, and every GUNW pair with it as reference
+    or secondary date. Returns (gc, coh, dropped) with dropped = row counts per table."""
+    keep = pd.Series(True, index=gc.index)
+    for orbit, role in (("asc", "gcov_asc"), ("desc", "gcov_desc")):
+        dates = site.excluded_dates(role)
+        if dates:
+            day = pd.to_datetime(gc["date"]).dt.date.astype(str)
+            keep &= ~((gc["orbit"] == orbit) & day.isin(dates))
+    dates = site.excluded_dates("gunw_asc")
+    keep_c = pd.Series(True, index=coh.index)
+    for col in ("ref_date", "sec_date"):
+        keep_c &= ~pd.to_datetime(coh[col]).dt.date.astype(str).isin(dates)
+    dropped = {"gcov_rows": int((~keep).sum()), "coherence_rows": int((~keep_c).sum())}
+    return gc[keep].reset_index(drop=True), coh[keep_c].reset_index(drop=True), dropped
+
+
 # --- Sentinel-2 NDVI stack ----------------------------------------------------------------
 
 

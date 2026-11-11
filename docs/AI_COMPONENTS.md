@@ -44,7 +44,7 @@ No tree model: with 38 rows it would memorize. Morelos delivers B and Ribeirão 
 | B, optical | 37/38 | 26/26 | 1 (p5, probably cane) |
 | A, radar | 34/38 | 23/26 | 1 (p5) |
 | Detector false alarms on the 12 non-cane fields behind either gate | 1/12 | | |
-| Ribeirão Preto, A vs MapBiomas (by area) | precision 72.0 %, recall 63.7 % | | |
+| Ribeirão Preto, A vs MapBiomas (by area) | precision 74.9 %, recall 46.9 % | | |
 | Ribeirão Preto, B vs MapBiomas (by area) | precision 77.8 %, recall 51.2 % | | |
 
 **Limits.**
@@ -55,7 +55,9 @@ No tree model: with 38 rows it would memorize. Morelos delivers B and Ribeirão 
 - Negatives are mostly pasture or scrub traced next to cane. Orchards, towns and irrigated
   vegetables were never seen; area-wide, 2 036 Morelos segments that WorldCover maps as
   tree cover are called cane.
-- The Morelos fit of B transfers poorly to Brazil (51 % recall).
+- Neither gate transfers well to Brazil: B 51 % recall, A 47 % once the corrupt 07-18
+  scene is excluded. A was delivered when it led (64 %, with that scene); B now leads on
+  precision and recall, and the delivered gate is to be revisited.
 
 ---
 
@@ -88,7 +90,7 @@ uses the same inputs.
 | logistic | 4.5 d | 24/26 | 12/12 |
 | ratio test, both orbits (reference) | 11.5 d | 15/26 | 8/12 |
 | rule (reference) | 19.2 d | 8/26 | 2/12 |
-| Ribeirão Preto, behind gate A, vs NDVI rule (40 dated segments) | 5.0 d | 30/40 | 4/40 dated with no NDVI harvest |
+| Ribeirão Preto, behind gate A, vs NDVI rule (40 dated segments) | 2.5 d | 30/40 | 6/40 dated with no NDVI harvest |
 
 **Limits.**
 - It does not decide whether a polygon is cane: on non-cane fields the seasonal 1.5-3 dB HV

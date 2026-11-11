@@ -36,9 +36,9 @@ Morelos models unchanged, was run on Ribeirão Preto, Brazil.
 | Morelos | cane gate accuracy (leave-one-field-out) | 37/38 optical (partly circular); 34/38 radar only | NDVI labels of 38 fields | [`results/4c`](results/4c/comparison.md) |
 | Morelos | area dated, zafra 2025-26 | 3 976 of 6 014 cane segments; 6 867 of 9 943 ha | – | [`results/4e`](results/4e/area_summary.json) |
 | Morelos | weekly harvests vs VIIRS fires within 200 m of cane | r = 0.71 (same week) | VIIRS active fires | [`results/4e`](results/4e/area_summary.json) |
-| Brazil | cane gate (radar, unchanged Morelos model) | precision 72.0 %, recall 63.7 % by area | MapBiomas 2024 land cover | [`results/5_brazil`](results/5_brazil/validation.md) |
-| Brazil | harvest date error (unchanged Morelos detector) | median 5.0 d; 30 of 40 sampled segments within ±12 d | NDVI rule on the local Sentinel-2 stack | [`results/5_brazil`](results/5_brazil/validation.md) |
-| Brazil | area dated, safra 2026-27 (radar from 2026-06-22) | 4 780 of 21 171 cane segments; 16 590 of 57 044 ha | – | [`results/5_brazil`](results/5_brazil/transfer.md) |
+| Brazil | cane gate (radar, unchanged Morelos model) | precision 74.9 %, recall 46.9 % by area (optical gate B: 77.8 % / 51.2 %; which to deliver is open) | MapBiomas 2024 land cover | [`results/5_brazil`](results/5_brazil/validation.md) |
+| Brazil | harvest date error (unchanged Morelos detector) | median 2.5 d; 30 of 40 sampled segments within ±12 d | NDVI rule on the local Sentinel-2 stack | [`results/5_brazil`](results/5_brazil/validation.md) |
+| Brazil | area dated, safra 2026-27 (radar from 2026-06-22) | 3 028 of 13 411 cane segments; 11 634 of 40 483 ha (corrupt 07-18 scene excluded) | – | [`results/5_brazil`](results/5_brazil/transfer.md) |
 
 None of these is accuracy against field visits: the references are optical or land-cover
 maps (see [Validation](#validation)).
@@ -82,7 +82,7 @@ check: [docs/VALIDATION.md](docs/VALIDATION.md).
 One season, 26 labelled cane fields and one region; references are optical, not field
 visits, and there is no untouched test set. The delivered Morelos gate is partly circular,
 and the radar-only gate drops the one grower-reported field. Coverage sets hard limits: no
-Morelos date before Dec 20, nothing before ~Jul 18 in Brazil, and NISAR data are
+Morelos date before Dec 20, nothing before mid-August in Brazil, and NISAR data are
 provisional. Segments are fragments of fields, not fields. Numbered list with figures:
 [docs/VALIDATION.md, Known limitations](docs/VALIDATION.md#known-limitations).
 

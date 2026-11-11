@@ -215,8 +215,13 @@ def main() -> int:
     s["err_days"] = (s["harvest_date"] - s["ndvi_mid"]).dt.total_seconds() / 86400
 
     # first date the 3-look baseline rule can emit: 4th acquisition of the earlier orbit
+    # (the site's excluded acquisitions are not looks)
     acq = {
-        o: sorted(pd.Timestamp(x["date"]) for x in ts.list_scenes(site.nisar[r].dir))
+        o: sorted(
+            pd.Timestamp(x["date"])
+            for x in ts.list_scenes(site.nisar[r].dir)
+            if x["date"] not in site.excluded_dates(r)
+        )
         for o, r in (("asc", "gcov_asc"), ("desc", "gcov_desc"))
     }
     first_datable = min(d[3] for d in acq.values() if len(d) > 3)

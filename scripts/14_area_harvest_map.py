@@ -1,6 +1,7 @@
 """Exercises 4d/4e: cane gate and harvest detector over every segment of the AOI.
 
     python scripts/14_area_harvest_map.py [--site morelos] [--segments <path>] [--skip-check]
+    python scripts/14_area_harvest_map.py --site brazil --scene-quality-only
 
 Inputs, outputs, season, CRS and NISAR folders come from configs/<site>.yaml (exercise 5);
 the file names below are Morelos's. The gate and the detector are always the models fitted
@@ -16,6 +17,10 @@ reference_fields.
      outputs/segments_ts/ and gathered into data/features/segments_timeseries.parquet
      (GCOV, both orbits) and data/features/segments_coherence.parquet;
    * VIIRS fires within 200 m (one spatial join).
+   Scene quality (zafra.scene_quality) is checked on every GCOV acquisition and written to
+   <results_dir>/scene_quality.csv; then the site's nisar.exclude_dates are dropped from
+   both radar tables (zonal.drop_excluded) before anything else uses them.
+   --scene-quality-only stops after the check (radar tables from the per-scene cache).
 3. Cane gate (cane_gate.classify_fields), the site's gate_variant (Morelos: optical B;
    Brazil: radar A), with p_cane_radar and p_cane_optical alongside. The date confidence
    checks the delivered gate against the other one.
@@ -45,6 +50,7 @@ from zafra import cane_features as CF
 from zafra import features as FT
 from zafra import fires as F
 from zafra import plots, zonal
+from zafra import scene_quality as SQ
 from zafra.detect import cane_gate as G
 from zafra.detect import model as M
 from zafra.paths import FEATURES_DIR, FIELDS_DIR
@@ -85,16 +91,39 @@ def configure(site):
 # --- inputs -------------------------------------------------------------------------------
 
 
-def radar_tables(gdf):
-    """(acq for cane_features, gcov frames for features.assemble, enl, coh)."""
+def radar_tables(gdf, quality_out=None):
+    """(acq for cane_features, gcov frames for features.assemble, enl, coh).
+
+    With `quality_out`, the scene-quality table of all acquisitions is written there first.
+    The site's excluded acquisitions are always dropped.
+    """
     gc, coh = zonal.radar_timeseries(
         gdf, ASC_DIR, DESC_DIR, GUNW_DIR, TS_CACHE, log=lambda m: None, crs=CRS
     )
+    if quality_out is not None:
+        scene_quality_report(gc, quality_out)
+    gc, coh, dropped = zonal.drop_excluded(gc, coh, SITE)
+    if any(dropped.values()):
+        log(f"excluded acquisitions {[e.date for e in SITE.nisar_exclude]}: dropped {dropped}")
     gc["date"] = pd.to_datetime(gc["date"])
     acq = gc.rename(columns={"HVHV_db": "hv_db", "HHHH_db": "hh_db", "ratio_db": "cross_ratio_db"})
     frames = [gc[gc["orbit"] == o] for o in ("asc", "desc")]
     enl = gc[[*FT.KEYS, "enl"]]
     return acq, frames, enl, coh
+
+
+def scene_quality_report(gc, out) -> pd.DataFrame:
+    qc = SQ.scene_quality(gc)
+    excluded = {o: SITE.excluded_dates(f"gcov_{o}") for o in ("asc", "desc")}
+    qc["excluded"] = [
+        d.date().isoformat() in excluded[o] for o, d in zip(qc["orbit"], qc["date"], strict=True)
+    ]
+    qc.to_csv(out, index=False, date_format="%Y-%m-%d", float_format="%.3f")
+    for r in qc[qc["flagged"]].itertuples():
+        state = "excluded in the site config" if r.excluded else "NOT excluded: look at it"
+        log(f"scene quality: {r.orbit} {r.date.date()} flagged ({r.reason}), {state}")
+    log(f"scene quality: {int(qc['flagged'].sum())} of {len(qc)} acquisitions flagged -> {out}")
+    return qc
 
 
 def optical_tables(gdf):
@@ -233,6 +262,9 @@ def main() -> int:
     ap.add_argument("--segments", help="default: the site's paths.segments")
     ap.add_argument("--skip-check", action="store_true")
     ap.add_argument("--force", action="store_true", help="recompute the per-segment features")
+    ap.add_argument(
+        "--scene-quality-only", action="store_true", help="scene-quality check only, then stop"
+    )
     args = ap.parse_args()
     configure(load_site(args.site))
     args.segments = args.segments or str(SEGMENTS)
@@ -240,16 +272,20 @@ def main() -> int:
         d.mkdir(parents=True, exist_ok=True)
     rt = {}
 
-    check = None if args.skip_check or REF is None else check_against_fields_v2()
-
     seg = gpd.read_file(args.segments)
     seg["id"] = seg["seg_id"]
     log(f"{len(seg)} segments from {args.segments}")
+    quality_out = OUT_DIR / "scene_quality.csv"
+    if args.scene_quality_only:
+        radar_tables(seg, quality_out)
+        return 0
+
+    check = None if args.skip_check or REF is None else check_against_fields_v2()
 
     # step 4: inputs + gate
     t0 = time.perf_counter()
     t = time.perf_counter()
-    acq, frames, enl, coh = radar_tables(seg)
+    acq, frames, enl, coh = radar_tables(seg, quality_out)
     rt["step5_radar_zonal_s"] = time.perf_counter() - t
     log(f"radar zonal, one pass per scene: {rt['step5_radar_zonal_s']:.0f} s")
     acq.to_parquet(TS_OUT, index=False)
@@ -272,7 +308,14 @@ def main() -> int:
     t = time.perf_counter()
     cane_ids = set(gate.loc[gate["cane_pred"].fillna(False).astype(bool), "id"])
     acq_times = pd.concat(
-        [FT.acquisition_times(d, o) for o, d in (("asc", ASC_DIR), ("desc", DESC_DIR))],
+        [
+            FT.acquisition_times(d, o).pipe(
+                lambda t, o=o: t[
+                    ~t["date"].dt.date.astype(str).isin(SITE.excluded_dates(f"gcov_{o}"))
+                ]
+            )
+            for o, d in (("asc", ASC_DIR), ("desc", DESC_DIR))
+        ],
         ignore_index=True,
     )
     sub = [f[f["field_id"].isin(cane_ids)] for f in frames]

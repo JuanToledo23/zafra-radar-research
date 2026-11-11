@@ -10,6 +10,8 @@ A site is one area of interest and one harvest season. The YAML holds:
   metric CRS (`epsg`, the UTM zone the S2 grid and all buffers / areas use);
 * nisar: the GCOV ascending, GCOV descending and GUNW ascending track/frame, the folder
   each is read from, and the search window used by scripts/00_download_nisar.py;
+  optional `exclude_dates`: acquisitions left out of every radar table (zonal.drop_excluded),
+  each with its date, the sources it applies to and the reason;
 * zafra: the season's name, its window (start, end exclusive), the crop year the NDVI
   phenology is read over, the Dec-Jan-like full-canopy scene window, the months in which
   the radar baseline is taken (cane still standing everywhere), and optional diagnostic
@@ -68,6 +70,13 @@ class NisarSource:
 
 
 @dataclass(frozen=True)
+class ExcludedScene:
+    date: str  # YYYY-MM-DD (UTC acquisition day, as in the file names)
+    sources: tuple[str, ...]  # NISAR roles: gcov_asc, gcov_desc, gunw_asc
+    reason: str
+
+
+@dataclass(frozen=True)
 class Site:
     name: str
     description: str
@@ -91,6 +100,7 @@ class Site:
     alerts: dict = field(default_factory=dict)
     summary: dict = field(default_factory=dict)
     web_rasters: dict = field(default_factory=dict)
+    nisar_exclude: tuple[ExcludedScene, ...] = ()
 
     @property
     def metric_crs(self) -> str:
@@ -109,6 +119,10 @@ class Site:
 
     def path(self, key: str) -> Path:
         return self.paths[key]
+
+    def excluded_dates(self, role: str) -> set[str]:
+        """Acquisition dates excluded for one NISAR role (gcov_asc, gcov_desc, gunw_asc)."""
+        return {e.date for e in self.nisar_exclude if role in e.sources}
 
     def register(self) -> None:
         """Make the zafra known to cane_features (window, crop year, baseline months)."""
@@ -167,6 +181,15 @@ def load_site(name: str = DEFAULT_SITE, register: bool = True) -> Site:
     missing = set(NISAR_ROLES) - set(nisar)
     if missing:
         raise ValueError(f"{path}: nisar.sources lacks {sorted(missing)}")
+    exclude = []
+    for e in n.get("exclude_dates") or []:
+        sources = tuple(e["sources"])
+        unknown = set(sources) - set(nisar)
+        if unknown or not e.get("reason"):
+            raise ValueError(f"{path}: exclude_dates {e}: unknown sources or no reason")
+        exclude.append(
+            ExcludedScene(pd.Timestamp(e["date"]).date().isoformat(), sources, str(e["reason"]))
+        )
     z = c["zafra"]
     season = (pd.Timestamp(z["start"]), pd.Timestamp(z["end"]))
     crop_year = (pd.Timestamp(z["crop_year_start"]), season[1])
@@ -210,6 +233,7 @@ def load_site(name: str = DEFAULT_SITE, register: bool = True) -> Site:
         alerts=c.get("alerts") or {},
         summary=c.get("summary") or {},
         web_rasters=c.get("web_rasters") or {},
+        nisar_exclude=tuple(exclude),
     )
     if register:
         site.register()

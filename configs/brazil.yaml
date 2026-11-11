@@ -24,6 +24,17 @@ nisar:
     gunw_asc:
       {product: GUNW, direction: ASCENDING, track: 146, frame: 167,
        dir: data/nisar/brazil/GUNW_ASCENDING_t146f167}
+  # Acquisitions left out of every radar table (zafra.zonal.drop_excluded, script 14). The
+  # files stay on disk; the scene-quality check (zafra.scene_quality) still reports them.
+  exclude_dates:
+    - date: "2026-07-18"
+      sources: [gcov_asc, gunw_asc]
+      reason: >-
+        Corrupt over the AOI: the GCOV image has streaks and no field structure
+        (results/9: segment HV p95 2.6 dB below its neighbours, ENL 4.9 vs ~3.4), and both
+        GUNW pairs with it (07-06/07-18, 07-18/08-11) have a flat coherence of 0.20 against
+        0.38-0.54 for every other pair. It made the 07-18 -> 08-11 step look like a harvest
+        on 1 466 segments (all dated 07-30).
 
 zafra:
   # Centre-South harvest: Apr 1 .. Nov 30. Data end in late Oct 2026 (radar 10-22, S2
@@ -47,8 +58,10 @@ firms:
   end: "2026-10-25"
   dir: data/firms/brazil
 
-# gate A (radar) delivered: agrees better with MapBiomas here than B,
-# which is still computed (p_cane_optical) as the pure transfer result (transfer.md)
+# gate A (radar) delivered: chosen when it agreed better with MapBiomas than B (63.7 % vs
+# 51.2 % recall). That was with the corrupt 07-18 scene; without it A is 74.9 % / 46.9 %
+# (precision / recall) against B's 77.8 % / 51.2 %, so the choice is open (transfer.md).
+# B is still computed (p_cane_optical) as the pure transfer result.
 gate_variant: radar
 
 reference_fields: null  # no hand-traced polygons: segmentation is not scored
@@ -97,8 +110,7 @@ summary:
 # 10 of 11 cycles since 06-24 (descending 9 of 11), 10 looks (descending 8) and the site's
 # own UTM 23S grid (descending is UTM 22S). Six dates over the whole radar record, ~3-5
 # weeks apart, with 07-06 / 08-11 bracketing the late-July peak (results/5_brazil/weekly.csv).
-# Not 07-18: that scene is corrupt over the AOI (streaks, no field structure; segment HV
-# p95 2.6 dB below its neighbours, ENL 4.9 vs ~3.4); docs/METHODS.md, web raster layers.
+# Not 07-18: corrupt, see nisar.exclude_dates.
 web_rasters:
   source: gcov_asc
   dates: ["2026-06-24", "2026-07-06", "2026-08-11", "2026-09-04", "2026-09-28", "2026-10-22"]

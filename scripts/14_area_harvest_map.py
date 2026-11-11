@@ -21,8 +21,9 @@ reference_fields.
    <results_dir>/scene_quality.csv; then the site's nisar.exclude_dates are dropped from
    both radar tables (zonal.drop_excluded) before anything else uses them.
    --scene-quality-only stops after the check (radar tables from the per-scene cache).
-3. Cane gate (cane_gate.classify_fields), the site's gate_variant (Morelos: optical B;
-   Brazil: radar A), with p_cane_radar and p_cane_optical alongside. The date confidence
+3. Cane gate (cane_gate.classify_fields), the site's gate_variant (optical B on both
+   sites; Brazil delivered radar A until the 07-18 exclusion), with p_cane_radar and
+   p_cane_optical alongside. The date confidence
    checks the delivered gate against the other one.
 4. 4b detector (xgboost default, logistic alternative), trained as in script 10 on the 26
    labelled fields_v2 cane fields, applied to every gated cane segment.

@@ -22,8 +22,8 @@ not accuracy against field visits.
 | Segmentation, Felzenszwalb vs 38 hand-traced fields | 24/38 with IoU ≥ 0.5, median IoU 0.58 | `results/4d/segmentation.md` |
 | Morelos area dated (zafra 2025-26) | 3 976 of 6 014 cane segments; 6 867 of 9 943 ha | `results/4e/area_summary.json` |
 | Weekly harvests vs VIIRS fires within 200 m of cane | r = 0.71 (same week) | `results/4e/area_summary.json` |
-| Brazil gate A vs MapBiomas 2024 | precision 74.9 %, recall 46.9 % (by area) | `results/5_brazil/validation.md` |
-| Brazil dates vs NDVI rule (40 dated segments) | median abs. error 2.5 d; 30/40 within ±12 d | `results/5_brazil/validation.md` |
+| Brazil gate B (delivered) vs MapBiomas 2024 | precision 77.8 %, recall 51.2 % (by area; radar gate A: 74.9 % / 46.9 %) | `results/5_brazil/validation.md` |
+| Brazil dates vs NDVI rule (40 dated segments) | median abs. error 2.5 d; 37/40 within ±12 d | `results/5_brazil/validation.md` |
 | Summaries, LLM path, verifier pass | 57/58 polygons (98.3 %) | `results/6/alert_counts.json` |
 
 ## Ground truth: p36
@@ -206,19 +206,19 @@ Morelos gates, detector and segmentation parameters are applied unchanged. The s
 chosen because NISAR has no L2 product over any Thai cane candidate in 2025-26. There are no
 reference fields: the gate is judged against MapBiomas 2024 [24], the dates against the
 script-07 NDVI rule on a random sample (seed 5) of 40 dated and 20 undated cane segments.
-Gate A figures are from the re-run without the corrupt ascending scene of 2026-07-18
-(`nisar.exclude_dates`; METHODS section 4). Gate B's detector figures are from the first
-run and still include that scene; its gate figures do not depend on radar.
+Both gates' figures are from re-runs without the corrupt ascending scene of 2026-07-18
+(`nisar.exclude_dates`; METHODS section 4). The site delivers gate B, the optical gate, as
+Morelos does; gate A is kept as radar evidence.
 
-| measure | **gate A, radar (delivered)** | gate B, optical (pure transfer; detector rows: first run, 07-18 included) | B re-fit on MapBiomas (5-fold CV, 3 km blocks; reference only) |
+| measure | **gate B, optical (delivered)** | gate A, radar (radar evidence) | B re-fit on MapBiomas (5-fold CV, 3 km blocks; reference only) |
 |---|---|---|---|
-| cane gated, ha (% of the 87 395 ha AOI) | 40 483 (46.3 %) | 42 491 (48.6 %) | 62 075 (71.0 %) |
-| precision / recall vs MapBiomas cane, by area | 74.9 % / 46.9 % | 77.8 % / 51.2 % | 89.0 % / 85.6 % |
-| cane segments: dated / no baseline / not detected | 3 028 / 1 766 / 8 617 | 3 490 / 4 723 / 3 997 | – |
-| dates vs NDVI: median abs. error, mean error | 2.5 d, +5.3 d | 4.5 d, +8.1 d | – |
-| within ±6 d / ±12 d (of 40 dated) | 27/40 / 30/40 | 25/40 / 28/40 | – |
-| missed (of 20 undated) / false alarms (of 40 dated) | 2/20 / 6/40 | 7/20 / 2/40 | – |
-| median HV drop of dated segments | −5.4 dB | −5.4 dB | – |
+| cane gated, ha (% of the 87 395 ha AOI) | 42 491 (48.6 %) | 40 483 (46.3 %) | 62 075 (71.0 %) |
+| precision / recall vs MapBiomas cane, by area | 77.8 % / 51.2 % | 74.9 % / 46.9 % | 89.0 % / 85.6 % |
+| cane segments: dated / no baseline / not detected | 2 776 / 2 250 / 7 184 | 3 028 / 1 766 / 8 617 | – |
+| dates vs NDVI: median abs. error, mean error | 2.5 d, +1.9 d | 2.5 d, +5.3 d | – |
+| within ±6 d / ±12 d (of 40 dated) | 31/40 / 37/40 | 27/40 / 30/40 | – |
+| missed (of 20 undated) / false alarms (of 40 dated) | 4/20 / 1/40 | 2/20 / 6/40 | – |
+| median HV drop of dated segments | −5.3 dB | −5.4 dB | – |
 
 * **Corrupt scene excluded.** The ascending 2026-07-18 GCOV and its two GUNW pairs are
   corrupt over the AOI (streaks, no field structure; HV p95 −2.6 dB and ENL +46 % against
@@ -226,13 +226,15 @@ run and still include that scene; its gate figures do not depend on radar.
   07-30 ± 12 d from the 07-18 → 08-11 step, and gate A gated 57 044 ha (precision 72.0 %,
   recall 63.7 %). Its median date error was 5.0 d, with 21/40 within ±6 d and 10/20 missed.
   Now no segment is dated in July, and every date is within ±6 d.
-* **The gate choice is open.** Gate A was delivered because it agreed better with
-  MapBiomas than B. Without the corrupt scene, B leads on both precision and recall.
+* **Gate B is delivered.** Gate A had been delivered because, with the corrupt scene, it
+  agreed better with MapBiomas than B. Without it, B leads on both precision and recall,
+  and its dates have fewer false alarms (1/40 against 6/40), so the site now delivers B.
+  Both samples are drawn from each gate's own cane set (same seed).
 * **Coverage limits the result more than accuracy.** NISAR has nothing before 2026-06-22,
   so the baseline is Jun-Jul and the first harvested look the baseline rule accepts is
   2026-08-21; dates span mid-August to mid-October only.
-* Gate A calls 2 601 segments of MapBiomas forest (mostly riparian corridors) cane. Its
-  confidence tier separates MapBiomas cane (73 % "high", 58 % "uncertain").
+* Gate B calls 1 984 segments of MapBiomas forest (mostly riparian corridors) cane (gate
+  A: 2 601). Its confidence tier separates MapBiomas cane (73 % "high", 58 % "uncertain").
 * The HV drop at harvest is larger than on Morelos (−3.0 dB area map, −3.5 dB labelled
   fields), not smaller as expected for a green harvest. Candidate causes (field size, dry
   winter soil, selection by the detector) are untested.
@@ -241,7 +243,7 @@ run and still include that scene; its gate figures do not depend on radar.
 
 ![Ribeirão Preto 2026-27 harvest map](figures/5_brazil_harvest_map.png)
 
-*Estimated harvest date per cane segment, Ribeirão Preto safra 2026-27 (gate A + the
+*Estimated harvest date per cane segment, Ribeirão Preto safra 2026-27 (gate B + the
 unchanged Morelos xgboost, 3-look baseline).*
 
 ## Exercise 6: alerts and summaries
@@ -303,7 +305,7 @@ Integration smoke test: `pytest -m integration tests/test_product_smoke.py`.
    cause unknown.
 7. **No dates before coverage allows.** Morelos: no date before Dec 20 (NISAR starts Nov 18 /
    Nov 23, and the baseline needs 3 standing looks). Brazil: nothing cut before mid-August
-   is dated; 1 766 cane segments (6 338 ha) are `no_baseline`.
+   is dated; 2 250 cane segments (9 242 ha) are `no_baseline`.
 8. **Segments are not fields.** Median cane segment 1.2 ha vs 2.6 ha hand-traced; 24/38
    reference fields matched with IoU ≥ 0.5. Counts are segment counts.
 9. **The gate is untested on other land covers.** 2 036 Morelos segments that WorldCover

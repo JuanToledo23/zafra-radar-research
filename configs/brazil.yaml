@@ -58,11 +58,11 @@ firms:
   end: "2026-10-25"
   dir: data/firms/brazil
 
-# gate A (radar) delivered: chosen when it agreed better with MapBiomas than B (63.7 % vs
-# 51.2 % recall). That was with the corrupt 07-18 scene; without it A is 74.9 % / 46.9 %
-# (precision / recall) against B's 77.8 % / 51.2 %, so the choice is open (transfer.md).
-# B is still computed (p_cane_optical) as the pure transfer result.
-gate_variant: radar
+# gate B (optical) delivered, as on Morelos. A (radar) was delivered while the corrupt 07-18
+# scene was in the tables (63.7 % vs 51.2 % recall against MapBiomas); without it A is
+# 74.9 % / 46.9 % (precision / recall) against B's 77.8 % / 51.2 %, so B is better on both.
+# A is still computed (p_cane_radar) and reported as radar evidence (transfer.md).
+gate_variant: optical
 
 reference_fields: null  # no hand-traced polygons: segmentation is not scored
 

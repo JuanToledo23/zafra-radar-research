@@ -54,7 +54,7 @@ Preto fallback:
 | crop year (NDVI phenology) | Jun 1 .. end of zafra | **2025-12-01 .. 2026-11-30** |
 | `collapse_in_zafra` (gate input) | collapse in Nov–May | **collapse in Apr 1 – Nov 30** (checked at both edges) |
 | radar baseline months | Nov–Dec (cane standing) | **Jun–Jul**: see below |
-| delivered gate (`gate_variant`) | B, optical | **A, radar** (B kept as `p_cane_optical`) |
+| delivered gate (`gate_variant`) | B, optical | **B, optical** (A kept as `p_cane_radar`, radar evidence) |
 
 **The radar baseline cannot be Jan–Mar 2026.** NISAR has no acquisition here before
 2026-06-22. With `baseline_months: [1, 2, 3]`:
@@ -74,7 +74,6 @@ percentile is 2.6 dB below its neighbours and its ENL is 46 % above them. The co
 scene-quality check (`results/5_brazil/scene_quality.csv`, docs/METHODS.md section 4)
 flags it and nothing else on either site. It is listed in `nisar.exclude_dates`
 (configs/brazil.yaml), and scripts 14 (`--force`), 15 and 16 were re-run without it.
-Every figure below is from that re-run; the figures before it are given where they matter.
 
 * **The July cluster is gone.** Before, 1 466 segments were dated 07-30 ± 12 d from the
   07-18 → 08-11 step. Now no segment is dated in July. The earliest date is 08-16. Cuts
@@ -85,12 +84,16 @@ Every figure below is from that re-run; the figures before it are given where th
 * **The radar gate shrank** from 21 171 segments (57 044 ha) to 13 411 (40 483 ha). The
   corrupt scene had added an HV drop and a coherence collapse to every segment, and gate
   A reads both as cane behaviour. Without it, **gate A no longer agrees better with
-  MapBiomas than gate B** (table below). The delivered `gate_variant: radar` was chosen
-  on the old figures; switching to B is a pending decision, not made here.
-* **The dates are better** on the 40 + 20 sample: median absolute error 5.0 → 2.5 d,
-  within ±6 d 21 → 27 of 40, missed 10 → 2 of 20. False alarms went from 4 to 6 of 40. The
-  sample is redrawn from the new cane set (same seed), so the two samples are not the same
-  segments.
+  MapBiomas than gate B** (table below).
+
+## Gate switched to B, optical (re-run 2026-11-11)
+
+Gate A had been delivered on Brazil because, with 07-18 in the tables, it agreed better
+with MapBiomas than B. Without the corrupt scene B leads on precision and recall, so the
+site now delivers **B, as on Morelos** (`gate_variant: optical`), and scripts 14, 15 and 16
+were re-run. A is still computed for every segment (`p_cane_radar`) and reported below as
+radar evidence. **Every figure below is from this re-run** (gate B, 07-18 excluded); the
+gate-A figures are given where they matter.
 
 ## The gate: which segments are cane
 
@@ -101,19 +104,19 @@ MapBiomas maps 64 556 ha (73.9 %) as cane.
 
 | gate | ha gated (% of AOI) | ha both | precision (ha) | recall (ha) | segment agreement |
 |---|---|---|---|---|---|
-| **A radar (delivered)** | 40 483 (46.3 %) | 30 307 | 74.9 % | 46.9 % | 47.3 % |
-| A radar, before the 07-18 exclusion | 57 044 (65.3 %) | 41 091 | 72.0 % | 63.7 % | 50.4 % |
-| B optical (pure transfer, not delivered) | 42 491 (48.6 %) | 33 042 | 77.8 % | 51.2 % | 46.8 % |
+| **B optical (delivered)** | 42 491 (48.6 %) | 33 042 | 77.8 % | 51.2 % | 46.8 % |
+| A radar (radar evidence, not delivered) | 40 483 (46.3 %) | 30 307 | 74.9 % | 46.9 % | 47.3 % |
+| A radar, before the 07-18 exclusion (delivered then) | 57 044 (65.3 %) | 41 091 | 72.0 % | 63.7 % | 50.4 % |
 | B optical **with local labels** (not delivered) | 62 075 (71.0 %) | 55 240 | 89.0 % | 85.6 % | 76.9 % |
 
-* **B, the pure transfer result**, is the Morelos optical gate unchanged, as delivered on
-  Morelos. It finds about half of the MapBiomas cane area. Its precision is reasonable,
-  but its recall is low.
-* **A is delivered on this site** (`gate_variant: radar`). It was chosen because, before
-  the 07-18 exclusion, it agreed better with MapBiomas than B (63.7 % recall against
-  51.2 %). Without the corrupt scene, B is ahead on both precision (77.8 % against 74.9 %)
-  and recall (51.2 % against 46.9 %). The choice is to be revisited. A is still the
-  unchanged Morelos model.
+* **B is delivered on this site** (`gate_variant: optical`), as on Morelos. It is the
+  Morelos optical gate unchanged: the pure transfer result. It finds about half of the
+  MapBiomas cane area. Its precision is reasonable, but its recall is low. B does not use
+  the radar, so the 07-18 exclusion does not change it.
+* **A was delivered here until the 07-18 exclusion**, because with the corrupt scene it
+  agreed better with MapBiomas (63.7 % recall against 51.2 %). Without it, B is ahead on
+  both precision (77.8 % against 74.9 %) and recall (51.2 % against 46.9 %). A is still the
+  unchanged Morelos model; it sets the date confidence (below).
 * **"With local labels"** re-fits variant B's features on the MapBiomas majority label of
   each segment. The probabilities are out of fold (5-fold CV grouped by 3 km spatial
   blocks of segment centroids).
@@ -121,41 +124,39 @@ MapBiomas maps 64 556 ha (73.9 %) as cane.
     never delivered.
   * It is scored against the same map it learned from, so it is optimistic even out of
     fold.
-* **Error modes of A:**
-  * 2 601 gated segments are MapBiomas forest formation, mostly riparian corridors (2 906
-    before the exclusion);
-  * 1 515 segments are MapBiomas "mosaic of uses" (3 824 before);
-  * A's own confidence tier now separates: MapBiomas cane share is 73 % for "high" and
-    58 % for "uncertain" (61 % and 62 % before the exclusion).
+* **Error modes of B:**
+  * 1 984 gated segments are MapBiomas forest formation, mostly riparian corridors (A:
+    2 601);
+  * 1 569 segments are MapBiomas "mosaic of uses" (A: 1 515);
+  * B's own confidence tier separates: MapBiomas cane share is 73 % for "high" (5 609
+    segments) and 58 % for "uncertain" (6 601).
 * **Why the optical gate transfers worst.** Its inputs are phenology rules (days above
   0.6, collapse in the zafra, longest high run) fitted on Morelos cane. Here the same
   features, on a shifted season, separate cane less well.
 
-## Counts (delivered: gate A, unmerged segments)
+## Counts (delivered: gate B, unmerged segments)
 
 | | segments | ha |
 |---|---|---|
 | all segments (after cleaning) | 32 277 | 87 395 |
-| gated cane (gate A, radar) | 13 411 | 40 483 (46.3 %) |
-| — gate confidence high / uncertain | 5 331 / 8 080 | |
-| cane, harvest dated | 3 028 | 11 634 |
-| cane, no baseline (cut before or during Jun–Jul) | 1 766 | 6 338 |
-| cane, no harvest detected | 8 617 | 22 511 |
-| gated cane that WorldCover maps as trees / grassland | 4 800 | 9 420 |
+| gated cane (gate B, optical) | 12 210 | 42 491 (48.6 %) |
+| — gate confidence high / uncertain | 5 609 / 6 601 | |
+| cane, harvest dated | 2 776 | 12 413 |
+| cane, no baseline (cut before or during Jun–Jul) | 2 250 | 9 242 |
+| cane, no harvest detected | 7 184 | 20 836 |
+| gated cane that WorldCover maps as trees / grassland | 4 030 | 8 255 |
 
-Before the 07-18 exclusion: 21 171 cane segments (57 044 ha), 4 780 dated, 6 576 no
-baseline, 9 815 not detected.
+With gate A (07-18 excluded): 13 411 cane segments (40 483 ha), 3 028 dated, 1 766 no
+baseline, 8 617 not detected. Before the 07-18 exclusion, gate A: 21 171 cane segments
+(57 044 ha), 4 780 dated, 6 576 no baseline, 9 815 not detected.
 
-* **Date confidence** (dated segments): high 1 132, medium 1 359, low 537. The check
-  gate is now B: "high" means gate A is sure and B agrees.
-* **Without the 3-look baseline rule** (the 4d rule), 4 794 segments would be dated. With
-  "≥ 3 standing looks in any orbit" instead of the candidate's own orbit, 4 154 would be.
-* **Merged layer** (script 15): 2 486 cane polygons (median 2.82 ha vs 1.39 ha unmerged),
-  941 dated. There is no reference to score the merge, so the unmerged layer is
+* **Date confidence** (dated segments): high 1 682, medium 827, low 267. The check gate
+  is A: "high" means gate B is sure and A agrees.
+* **Without the 3-look baseline rule** (the 4d rule), 5 026 segments would be dated. With
+  "≥ 3 standing looks in any orbit" instead of the candidate's own orbit, 4 139 would be.
+* **Merged layer** (script 15): 3 246 cane polygons (median 3.90 ha vs 1.60 ha unmerged),
+  938 dated. There is no reference to score the merge, so the unmerged layer is
   delivered, as on Morelos.
-* **With gate B delivered** (the first run, same detector, 07-18 still included):
-  12 210 cane segments (42 491 ha), of which 3 490 dated, 4 723 no baseline and 3 997 not
-  detected. Not re-run.
 
 ## Detector dates vs independent NDVI windows
 
@@ -167,48 +168,50 @@ midpoint.
 
 | delivered gate + detector | median abs. error (d) | mean error (d) | within ±6 d | within ±12 d | missed | false alarms |
 |---|---|---|---|---|---|---|
-| **A + 4b xgboost, 3-look baseline (delivered)** | 2.5 | +5.3 | 27/40 | 30/40 | 2/20 | 6/40 |
+| **B + 4b xgboost, 3-look baseline (delivered)** | 2.5 | +1.9 | 31/40 | 37/40 | 4/20 | 1/40 |
+| A, 07-18 excluded | 2.5 | +5.3 | 27/40 | 30/40 | 2/20 | 6/40 |
 | A, before the 07-18 exclusion | 5.0 | +6.7 | 21/40 | 30/40 | 10/20 | 4/40 |
-| B + 4b xgboost, 3-look baseline (first run, 07-18 included) | 4.5 | +8.1 | 25/40 | 28/40 | 7/20 | 2/40 |
+| B, first run (07-18 included) | 4.5 | +8.1 | 25/40 | 28/40 | 7/20 | 2/40 |
 
 * **Within ±N d:** dated segments whose absolute error is ≤ N days, out of all 40 dated
   (including those with no NDVI window).
 * **False alarm:** dated by radar, but no NDVI harvest in the season.
 * **Missed:** undated, but an NDVI harvest lies after the first date the baseline rule can
   emit (2026-08-21; 2026-08-11 before the 07-18 exclusion).
-* **Undated A sample:** 2 of the 20 have an NDVI harvest before that date (not datable by
-  construction); 16 have no NDVI harvest in the season. Dated: 34 with an NDVI window, 6
+* **Undated B sample:** 10 of the 20 have an NDVI harvest before that date (not datable
+  by construction); 6 have no NDVI harvest in the season. Dated: 39 with an NDVI window, 1
   with none.
 * **The rows are different samples.** Each is drawn from that gate's own cane set, so
-  they compare the two delivered products, not the detector alone. The detector and its
-  dates are the same model in both. A gates in more marginal segments (more `mosaic of
-  uses` and forest), which shows up as more misses and false alarms.
-* **Mean error is positive** in all rows (+5.3 / +6.7 / +8.1 d), against medians of
-  2.5 / 5.0 / 4.5 d: there is a tail of late radar dates. For A, 4 of the 34 segments with
-  a window are outside ±12 d.
+  they compare the delivered products, not the detector alone. The detector and its
+  dates are the same model in all rows. A gates in more marginal segments (more forest),
+  which shows up as more false alarms.
+* **Mean error is positive** in all rows (+1.9 / +5.3 / +6.7 / +8.1 d), against medians of
+  2.5 / 2.5 / 5.0 / 4.5 d: there is a tail of late radar dates, smallest with B. For B, 2
+  of the 39 segments with a window are outside ±12 d.
 * Morelos 4b (26 labelled fields, out of fold): median error about 3.5 d, against each
   field's Sentinel-2 NDVI harvest window (script 07), so also an optical reference.
 
 ## Distribution and uncertainty of the detected dates
 
-3 028 dated segments: **p10 2026-08-16, median 2026-09-10, p90 2026-10-15**. Area-weighted:
-p10 08-16, median 09-10, p90 10-09. 100 % of the dates fall inside the Apr 1 – Nov 30
-season. (Before the 07-18 exclusion: 4 780 segments, p10 07-30, median 08-28, p90 10-09.)
+2 776 dated segments: **p10 2026-08-16, median 2026-09-10, p90 2026-10-09**. Area-weighted:
+p10 08-16, median 09-10, p90 10-03. 100 % of the dates fall inside the Apr 1 – Nov 30
+season. (Gate A, 07-18 excluded: 3 028 segments, p90 10-15. Before the exclusion: 4 780
+segments, p10 07-30, median 08-28, p90 10-09.)
 
 | month | segments | ha |
 |---|---|---|
-| 2026-08 | 1 090 | 4 406 |
-| 2026-09 | 1 047 | 4 095 |
-| 2026-10 | 891 | 3 133 |
+| 2026-08 | 1 078 | 4 778 |
+| 2026-09 | 946 | 4 440 |
+| 2026-10 | 752 | 3 195 |
 
 **`date_uncertainty_days`** is half the gap between the last standing and the first
 harvested acquisition. Every date is the midpoint of that gap:
 
 | ± days | segments | ha | dates | the gap |
 |---|---|---|---|---|
-| 1 | 377 | 1 269 | 08-22 .. 10-09 | descending → ascending, 2 days apart |
-| 5 | 2 266 | 8 715 | 08-16 .. 10-15 | ascending → descending, 10 days apart |
-| 6 | 385 | 1 650 | 09-10 | ascending 09-04 → 09-16 (12 days, the descending 09-14 is missing) |
+| 1 | 342 | 1 375 | 08-22 .. 10-09 | descending → ascending, 2 days apart |
+| 5 | 2 101 | 9 441 | 08-16 .. 10-15 | ascending → descending, 10 days apart |
+| 6 | 333 | 1 596 | 09-10 | ascending 09-04 → 09-16 (12 days, the descending 09-14 is missing) |
 
 * **Corrupt scene excluded.** The former July "peak" was 1 466 segments dated 07-30 ± 12 d
   (1 230 with gate B), all from the 07-18 → 08-11 step. 07-18 is corrupt (section above),
@@ -228,15 +231,17 @@ Largest single HV drop (`hv_drop_db`), median:
 
 | | dated cane segments | all gated cane |
 |---|---|---|
-| Brazil, gate A (delivered) | **−5.44 dB** (3 028) | −1.82 dB |
+| Brazil, gate B (delivered) | **−5.28 dB** (2 776) | −2.66 dB |
+| Brazil, gate A, 07-18 excluded | −5.44 dB (3 028) | −1.82 dB |
 | Brazil, gate A before the 07-18 exclusion | −5.14 dB (4 780) | −3.68 dB |
 | Brazil, gate B (first run, 07-18 included) | −5.41 dB (3 490) | −4.56 dB |
 | Morelos area map (same pipeline) | −2.97 dB (3 976) | −2.60 dB |
 | Morelos labelled cane fields (4c) | −3.5 dB | |
 
 * **Brazil's drop is larger, not smaller as expected for a green harvest.** The median
-  per date ranges from −4.3 to −6.1 dB with gate A (before the exclusion −3.4 to −5.6 dB;
-  −3.9 to −5.8 dB with B), so it is not an artefact of one interval.
+  per date ranges from −4.0 to −5.9 dB with gate B (−4.3 to −6.1 dB with A; before the
+  exclusion −3.4 to −5.6 dB with A, −3.9 to −5.8 dB with B), so it is not an artefact of
+  one interval.
 * **Open hypothesis, not established.** Two candidate causes:
   * larger fields, with less edge mixing of cut and standing cane or other cover within a
     segment;
@@ -250,7 +255,7 @@ Largest single HV drop (`hv_drop_db`), median:
 | fires | r, same week | r, fires +1 week |
 |---|---|---|
 | within 200 m of gated cane | −0.12 | −0.12 |
-| all in the AOI | −0.13 | −0.13 |
+| all in the AOI | −0.13 | −0.14 |
 
 There are 17 fires in total, all in late May to July, before the first datable date. This
 is consistent with a green-harvest region, and it says nothing about the detector.
@@ -258,18 +263,17 @@ is consistent with a green-harvest region, and it says nothing about the detecto
 ## What broke, or needs a decision
 
 1. **No Jan–Mar baseline.** It is impossible with this coverage (see above). Under the
-   Jun–Jul baseline, 1 766 cane segments (6 338 ha) are `no_baseline`, and nothing cut
+   Jun–Jul baseline, 2 250 cane segments (9 242 ha) are `no_baseline`, and nothing cut
    before mid-August is dated.
-2. **Neither gate transfers well.** The optical gate finds 51 % of the MapBiomas cane area
-   and the radar gate, without the corrupt scene, 47 %. The radar gate is delivered on the
-   old figures; **which gate to deliver is open** (B now leads on precision and recall).
-   Local labels would close most of the gap (86 % recall out of fold), but would no longer
-   be a transfer test.
+2. **Neither gate transfers well.** The optical gate (delivered) finds 51 % of the
+   MapBiomas cane area and the radar gate, without the corrupt scene, 47 %. Local labels
+   would close most of the gap (86 % recall out of fold), but would no longer be a
+   transfer test.
 3. **Corrupt scene excluded:** ascending 2026-07-18 (`nisar.exclude_dates`), which had put
-   1 466 segments at 07-30 ± 12 d.
-4. **The slim GeoJSON is 27.1 MB** with gate A (13 411 cane polygons; 41.8 MB and 21 171
-   before the exclusion). With gate B it was 24.9 MB. The product serves vector tiles from
-   PostGIS (docs/METHODS.md).
+   1 466 segments at 07-30 ± 12 d, and had made gate A look better than B.
+4. **The slim GeoJSON is 25.6 MB** with gate B (12 210 cane polygons; 27.1 MB with gate A,
+   41.8 MB with gate A before the exclusion). The product serves vector tiles from PostGIS
+   (docs/METHODS.md).
 5. **What worked:**
    * the UTM 22S descending grid was reprojected by `zonal` with no NaN values (every
      segment valid on every date);

@@ -33,9 +33,9 @@ phenology (script 07) plus visual tracing, not field visits.
 standardization, class-balanced, C = 1). Two variants are delivered: B, optical, 7 inputs
 (NDVI phenology over the crop year and the bare-pixel share after the collapse, plus
 missing-value indicators); A, radar, 12 inputs (HV/HH statistics, largest HV drop, pre-season HV level, GUNW coherence, ENL).
-No tree model: with 38 rows it would memorize. Morelos delivers B and Ribeirão Preto A
-(`gate_variant`); both probabilities are always returned (`p_cane_optical`,
-`p_cane_radar`).
+No tree model: with 38 rows it would memorize. Both sites deliver B (`gate_variant`;
+Ribeirão Preto delivered A until the corrupt 07-18 scene was excluded); both probabilities
+are always returned (`p_cane_optical`, `p_cane_radar`), and A is kept as radar evidence.
 
 **Metrics** (leave-one-field-out, `results/4c/comparison.md`):
 
@@ -44,8 +44,8 @@ No tree model: with 38 rows it would memorize. Morelos delivers B and Ribeirão 
 | B, optical | 37/38 | 26/26 | 1 (p5, probably cane) |
 | A, radar | 34/38 | 23/26 | 1 (p5) |
 | Detector false alarms on the 12 non-cane fields behind either gate | 1/12 | | |
+| Ribeirão Preto, B (delivered) vs MapBiomas (by area) | precision 77.8 %, recall 51.2 % | | |
 | Ribeirão Preto, A vs MapBiomas (by area) | precision 74.9 %, recall 46.9 % | | |
-| Ribeirão Preto, B vs MapBiomas (by area) | precision 77.8 %, recall 51.2 % | | |
 
 **Limits.**
 - 38 rows, one season, one area; one field is 2.6 points of accuracy.
@@ -56,8 +56,8 @@ No tree model: with 38 rows it would memorize. Morelos delivers B and Ribeirão 
   vegetables were never seen; area-wide, 2 036 Morelos segments that WorldCover maps as
   tree cover are called cane.
 - Neither gate transfers well to Brazil: B 51 % recall, A 47 % once the corrupt 07-18
-  scene is excluded. A was delivered when it led (64 %, with that scene); B now leads on
-  precision and recall, and the delivered gate is to be revisited.
+  scene is excluded. A was delivered when it led (64 %, with that scene); without it B
+  leads on precision and recall and is delivered.
 
 ---
 
@@ -90,7 +90,7 @@ uses the same inputs.
 | logistic | 4.5 d | 24/26 | 12/12 |
 | ratio test, both orbits (reference) | 11.5 d | 15/26 | 8/12 |
 | rule (reference) | 19.2 d | 8/26 | 2/12 |
-| Ribeirão Preto, behind gate A, vs NDVI rule (40 dated segments) | 2.5 d | 30/40 | 6/40 dated with no NDVI harvest |
+| Ribeirão Preto, behind gate B, vs NDVI rule (40 dated segments) | 2.5 d | 37/40 | 1/40 dated with no NDVI harvest |
 
 **Limits.**
 - It does not decide whether a polygon is cane: on non-cane fields the seasonal 1.5-3 dB HV

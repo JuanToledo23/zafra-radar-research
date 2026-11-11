@@ -1,27 +1,27 @@
 {
-  "adjacent_cane_pairs": 21980,
-  "merged_groups_with_2plus": 1173,
+  "adjacent_cane_pairs": 16860,
+  "merged_groups_with_2plus": 1497,
   "sizes": [
     {
       "layer": "unmerged",
-      "cane polygons": 13411,
-      "median cane ha": 1.39,
-      "mean cane ha": 3.0186451420475726,
-      "dated cane polygons": 3028,
+      "cane polygons": 12210,
+      "median cane ha": 1.6,
+      "mean cane ha": 3.480004095004095,
+      "dated cane polygons": 2776,
       "all polygons": 32277
     },
     {
       "layer": "merged",
-      "cane polygons": 2486,
-      "median cane ha": 2.819989120092389,
-      "mean cane ha": 16.284411015275168,
-      "dated cane polygons": 941,
-      "all polygons": 21352
+      "cane polygons": 3246,
+      "median cane ha": 3.9000716913164446,
+      "mean cane ha": 13.090216701027998,
+      "dated cane polygons": 938,
+      "all polygons": 23313
     }
   ],
   "iou": null,
   "delivered": "unmerged",
-  "slim_mb": 27.11,
-  "slim_polygons": 13411,
-  "runtime_s": 24.3
+  "slim_mb": 25.56,
+  "slim_polygons": 12210,
+  "runtime_s": 21.8
 }

@@ -27,101 +27,89 @@
   },
   "error_table": [
     {
-      "method": "gate A + 4b xgboost, 3-look baseline",
+      "method": "gate B + 4b xgboost, 3-look baseline",
       "median |error| (d)": 2.5,
-      "mean error (d)": 5.3088235294117645,
-      "within \u00b16 d": "27/40",
-      "within \u00b112 d": "30/40",
-      "missed": "2/20",
-      "false alarms": "6/40"
+      "mean error (d)": 1.8846153846153846,
+      "within \u00b16 d": "31/40",
+      "within \u00b112 d": "37/40",
+      "missed": "4/20",
+      "false alarms": "1/40"
     }
   ],
   "sample_categories": {
-    "dated, NDVI window found": 34,
-    "dated, no NDVI harvest in the season (false alarm)": 6,
-    "undated, NDVI harvest datable by radar (missed)": 2,
-    "undated, NDVI harvest before the first datable date": 2,
-    "undated, no NDVI harvest in the season": 16
+    "dated, NDVI window found": 39,
+    "dated, no NDVI harvest in the season (false alarm)": 1,
+    "undated, NDVI harvest datable by radar (missed)": 4,
+    "undated, NDVI harvest before the first datable date": 10,
+    "undated, no NDVI harvest in the season": 6
   },
   "week_corr": {
     "fires_cane": {
-      "-1": -0.125,
-      "0": -0.121,
-      "1": -0.125
+      "-1": -0.123,
+      "0": -0.119,
+      "1": -0.123
     },
     "fires_all": {
-      "-1": -0.138,
-      "0": -0.133,
-      "1": -0.138
+      "-1": -0.135,
+      "0": -0.131,
+      "1": -0.135
     }
   },
   "date_distribution_segments": {
     "p10": "2026-08-16",
     "p50": "2026-09-10",
-    "p90": "2026-10-15"
+    "p90": "2026-10-09"
   },
   "date_distribution_area": {
     "p10": "2026-08-16",
     "p50": "2026-09-10",
-    "p90": "2026-10-09"
+    "p90": "2026-10-03"
   },
   "dated_share_in_season": 1.0,
-  "dated_segments": 3028,
+  "dated_segments": 2776,
   "by_month": [
     {
       "month": "2026-08",
-      "segments": 1090,
-      "ha": 4406.0
+      "segments": 1078,
+      "ha": 4778.0
     },
     {
       "month": "2026-09",
-      "segments": 1047,
-      "ha": 4095.0
+      "segments": 946,
+      "ha": 4440.0
     },
     {
       "month": "2026-10",
-      "segments": 891,
-      "ha": 3133.0
+      "segments": 752,
+      "ha": 3195.0
     }
   ],
   "date_uncertainty": [
     {
       "\u00b1 days": 1.0,
-      "segments": 377,
-      "ha": 1269.0,
+      "segments": 342,
+      "ha": 1375.0,
       "first_date": "2026-08-22",
       "last_date": "2026-10-09"
     },
     {
       "\u00b1 days": 5.0,
-      "segments": 2266,
-      "ha": 8715.0,
+      "segments": 2101,
+      "ha": 9441.0,
       "first_date": "2026-08-16",
       "last_date": "2026-10-15"
     },
     {
       "\u00b1 days": 6.0,
-      "segments": 385,
-      "ha": 1650.0,
+      "segments": 333,
+      "ha": 1596.0,
       "first_date": "2026-09-10",
       "last_date": "2026-09-10"
     }
   ],
   "mapbiomas": [
     {
-      "gate": "A radar (delivered)",
-      "ha gated": 40483,
-      "% of AOI": "46.3%",
-      "ha MB cane": 64556,
-      "ha both": 30307,
-      "precision (ha)": "74.9%",
-      "recall (ha)": "46.9%",
-      "precision (segments)": "63.9%",
-      "recall (segments)": "41.3%",
-      "agree (segments)": "47.3%"
-    },
-    {
-      "gate": "B optical (not delivered)",
+      "gate": "B optical (delivered)",
       "ha gated": 42491,
       "% of AOI": "48.6%",
       "ha MB cane": 64556,
@@ -131,6 +119,18 @@
       "precision (segments)": "64.5%",
       "recall (segments)": "38.0%",
       "agree (segments)": "46.8%"
+    },
+    {
+      "gate": "A radar (not delivered)",
+      "ha gated": 40483,
+      "% of AOI": "46.3%",
+      "ha MB cane": 64556,
+      "ha both": 30307,
+      "precision (ha)": "74.9%",
+      "recall (ha)": "46.9%",
+      "precision (segments)": "63.9%",
+      "recall (segments)": "41.3%",
+      "agree (segments)": "47.3%"
     },
     {
       "gate": "B optical, with local labels (MapBiomas, 5-fold CV by 3 km blocks; not delivered)",
@@ -148,78 +148,78 @@
   "mapbiomas_of_gated": [
     {
       "MapBiomas class of gated cane": "sugar cane",
-      "segments": 8567
+      "segments": 7878
     },
     {
       "MapBiomas class of gated cane": "forest formation",
-      "segments": 2601
+      "segments": 1984
     },
     {
       "MapBiomas class of gated cane": "mosaic of uses",
-      "segments": 1515
+      "segments": 1569
     },
     {
       "MapBiomas class of gated cane": "soybean",
-      "segments": 438
+      "segments": 402
     },
     {
       "MapBiomas class of gated cane": "wetland",
-      "segments": 212
-    },
-    {
-      "MapBiomas class of gated cane": "urban area",
-      "segments": 19
-    },
-    {
-      "MapBiomas class of gated cane": "citrus",
-      "segments": 19
+      "segments": 177
     },
     {
       "MapBiomas class of gated cane": "pasture",
-      "segments": 9
+      "segments": 55
     },
     {
-      "MapBiomas class of gated cane": "river, lake",
-      "segments": 9
+      "MapBiomas class of gated cane": "citrus",
+      "segments": 41
+    },
+    {
+      "MapBiomas class of gated cane": "urban area",
+      "segments": 36
     },
     {
       "MapBiomas class of gated cane": "other temporary crops",
-      "segments": 7
-    },
-    {
-      "MapBiomas class of gated cane": "forest plantation",
-      "segments": 6
+      "segments": 27
     },
     {
       "MapBiomas class of gated cane": "coffee",
-      "segments": 5
-    },
-    {
-      "MapBiomas class of gated cane": "other non-vegetated",
-      "segments": 2
+      "segments": 16
     },
     {
       "MapBiomas class of gated cane": "other perennial crops",
-      "segments": 2
+      "segments": 10
+    },
+    {
+      "MapBiomas class of gated cane": "river, lake",
+      "segments": 10
+    },
+    {
+      "MapBiomas class of gated cane": "forest plantation",
+      "segments": 4
+    },
+    {
+      "MapBiomas class of gated cane": "other non-vegetated",
+      "segments": 1
     }
   ],
   "mapbiomas_by_gate_confidence": [
     {
       "gate_confidence": "high",
-      "segments": 5331,
-      "MB cane share": 0.725567435753142
+      "segments": 5609,
+      "MB cane share": 0.7268675343198431
     },
     {
       "gate_confidence": "uncertain",
-      "segments": 8080,
-      "MB cane share": 0.5815594059405941
+      "segments": 6601,
+      "MB cane share": 0.5758218451749735
     }
   ],
   "hv_drop": {
     "brazil": {
-      "median_dated_db": -5.44,
-      "median_all_cane_db": -1.82,
-      "dated_segments": 3028
+      "median_dated_db": -5.28,
+      "median_all_cane_db": -2.66,
+      "dated_segments": 2776
     },
     "morelos_area_map": {
       "median_dated_db": -2.97,
@@ -228,5 +228,5 @@
     },
     "morelos_labelled_cane_median_db": -3.5
   },
-  "runtime_s": 21.0
+  "runtime_s": 21.3
 }

@@ -75,7 +75,7 @@ cane fields, with the same thresholds, Felzenszwalb parameters and cleaning rule
 | season (zafra / safra) window | 2025-11-01 .. 2026-06-01 (exclusive) | 2026-04-01 .. 2026-12-01 (exclusive) |
 | crop year (NDVI phenology) | 2025-06-01 .. 2026-06-01 | 2025-12-01 .. 2026-12-01 |
 | radar baseline months | Nov, Dec (cane standing) | Jun, Jul (first radar months; no NISAR before 2026-06-22) |
-| delivered gate | B, optical | A, radar |
+| delivered gate | B, optical | B, optical (A until the 07-18 exclusion) |
 
 Four rules that assumed the Mexican Nov-May season now read the season from the config
 and give the old values on Morelos: the radar baseline (`features.season_baseline`), the
@@ -158,8 +158,8 @@ missing indicators, standardization, `class_weight="balanced"`, C = 1 [36]):
 
 | variant | inputs | role |
 |---|---|---|
-| **B, optical** | NDVI peak and minimum over the crop year, days ≥ 0.6, longest run ≥ 0.6, number of collapses (> 0.3 below the previous 30-day high), `collapse_in_zafra`, share of bare pixels (NDVI ≤ 0.35) after the main collapse | delivered on Morelos |
-| **A, radar** | HV range and std, HH std, HV − HH mean and std, largest single HV drop, pre-season HV level, GUNW coherence min / mean / range (field means), `joint_collapse` (HV drop and coherence minimum ≤ 12 days apart), median ENL | delivered on Ribeirão Preto; always returned as `p_cane_radar` |
+| **B, optical** | NDVI peak and minimum over the crop year, days ≥ 0.6, longest run ≥ 0.6, number of collapses (> 0.3 below the previous 30-day high), `collapse_in_zafra`, share of bare pixels (NDVI ≤ 0.35) after the main collapse | delivered on both sites (the default) |
+| **A, radar** | HV range and std, HH std, HV − HH mean and std, largest single HV drop, pre-season HV level, GUNW coherence min / mean / range (field means), `joint_collapse` (HV drop and coherence minimum ≤ 12 days apart), median ENL | radar evidence: always returned as `p_cane_radar`, sets the date confidence; was delivered on Ribeirão Preto until the 07-18 exclusion |
 | C, combined | A + B + VIIRS fire count | evaluated only |
 | A+F | A + VIIRS fire count | evaluated only |
 
@@ -170,9 +170,13 @@ the 12 others. Leave-one-field-out evaluation. Rule baselines: NDVI (`longest_hi
 **Why B on Morelos.** The product cannot drop p36, the only grower-reported field. A drops
 it (P = 0.20) with p2a and p16; B drops no cane field. The labels come from NDVI, so B's
 score is partly circular; A is the independent check, shown next to B
-([VALIDATION](VALIDATION.md#exercise-4c-cane-gate)). **Why A on Ribeirão Preto.** Judged
-against MapBiomas, B transfers poorly (51 % recall by area) and A better (64 %)
-([VALIDATION](VALIDATION.md#exercise-5-transfer-to-brazil)).
+([VALIDATION](VALIDATION.md#exercise-4c-cane-gate)). **Both sites now use B by default.**
+Ribeirão Preto delivered A while the corrupt 2026-07-18 scene was in the radar tables:
+judged against MapBiomas, A then agreed better (64 % recall by area against B's 51 %).
+Without that scene A drops to 74.9 % precision / 46.9 % recall against B's 77.8 % / 51.2 %,
+and B's dates have fewer false alarms, so the site delivers B
+([VALIDATION](VALIDATION.md#exercise-5-transfer-to-brazil)). A is still computed and
+reported as radar evidence on both sites.
 
 ## 4. Radar series and features
 
@@ -355,7 +359,7 @@ layer.
 polygons, every status; 5 m simplification, coordinates rounded to 1e-6°; 12 columns
 (segment_id, area_ha, p_cane, p_cane_radar, p_cane_optical, harvest_date,
 date_uncertainty_days, status, confidence, hv_drop_db, coh_min, wc_disagrees). Morelos:
-6 014 polygons, 8.5 MB. Ribeirão Preto: 13 411 polygons, 27.1 MB. Non-cane segments are
+6 014 polygons, 8.5 MB. Ribeirão Preto: 12 210 polygons, 25.6 MB. Non-cane segments are
 left out (with them the Morelos file is 36-61 MB). The weekly series for the dashboard is
 `results/4e/weekly.csv`.
 

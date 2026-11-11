@@ -81,9 +81,10 @@ def test_brazil_config_is_a_separate_site():
 
 
 def test_gate_variant_is_per_site():
-    # Morelos keeps the optical gate of 4c-4e; Brazil delivers the radar gate (exercise 5)
+    # both sites deliver the optical gate (B); Brazil delivered the radar gate (A) until the
+    # corrupt 07-18 scene was excluded, and A is still reported there as radar evidence
     assert load_site("morelos").gate_variant == "B"
-    assert load_site("brazil").gate_variant == "A"
+    assert load_site("brazil").gate_variant == "B"
 
 
 def test_unknown_site_is_a_clear_error():

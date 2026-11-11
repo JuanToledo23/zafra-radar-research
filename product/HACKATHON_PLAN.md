@@ -13,6 +13,10 @@ recomputed: `data/results/harvest_map_2025_26_slim.geojson` (and the Brazil one)
       (pip and npm need the network only here)
 - [ ] Start offline once: `docker compose -f docker-compose.yml -f docker-compose.offline.yml
       up -d --wait`, then `cd scripts && node screenshot.mjs --offline`
+- [ ] Host ports free: API **8010** (moved from 8000, taken by another local API container),
+      web 5173, db 5434: `lsof -iTCP:8010,5173,5434 -sTCP:LISTEN` prints nothing. On the
+      dev Mac another project's frontend holds 5173: stop it or set `WEB_PORT` in
+      `product/.env`
 - [ ] Tokens in the repo-root `.env` checked:
   - [ ] Earthdata (`EARTHDATA_USERNAME` / `EARTHDATA_PASSWORD`, ASF login)
   - [ ] Earth Engine (`EE_PROJECT`, `earthengine authenticate` still valid)

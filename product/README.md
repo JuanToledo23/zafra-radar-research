@@ -17,7 +17,7 @@ docker compose up --build     # add -d --wait to run in the background until hea
 | Service | URL / port | Notes |
 |---|---|---|
 | web | http://localhost:5173 | Vite dev server, hot reload (source bind-mounted) |
-| api | http://localhost:8000/health, `/version`, `/docs` | FastAPI, reload on save; also proxied at `/api` from the web app |
+| api | http://localhost:8010/health, `/version`, `/docs` | FastAPI, reload on save; also proxied at `/api` from the web app |
 | db  | localhost:5434 (user/password/db from `.env`) | PostGIS 16-3.4, named volume `pgdata` |
 
 ```bash
@@ -43,7 +43,7 @@ starts and the map renders with the Mac wifi off:
   ```
 
   puts db/api/web on an `internal` network (no DNS, no internet). A small TCP forwarder
-  (`gateway`) publishes ports 5173 and 8000, because Docker does not publish ports of
+  (`gateway`) publishes ports 5173 and 8010, because Docker does not publish ports of
   containers on internal networks only.
 
 ## Notes

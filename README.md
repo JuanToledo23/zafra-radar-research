@@ -161,7 +161,7 @@ Each script's options are in its docstring (`--help`).
 
 ```bash
 cd product
-docker compose up --build    # web http://localhost:5173, api http://localhost:8000/health
+docker compose up --build    # web http://localhost:5173, api http://localhost:8010/health
 ```
 
 It shows a bundled 50-polygon sample; data loading and the real endpoints are planned in

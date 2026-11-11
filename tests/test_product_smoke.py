@@ -17,7 +17,7 @@ import pytest
 from zafra.paths import ROOT
 
 PRODUCT = ROOT / "product"
-API = f"http://localhost:{os.environ.get('API_PORT', '8000')}"
+API = f"http://localhost:{os.environ.get('API_PORT', '8010')}"
 
 pytestmark = pytest.mark.integration
 

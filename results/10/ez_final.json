@@ -1,0 +1,38 @@
+{
+  "mill": "Emiliano Zapata",
+  "source": "Reporte_de_cifras_finales_25_26.pdf",
+  "publication_date": "2026-08-17",
+  "season_start": "2025-11-27",
+  "season_end": "2026-05-03",
+  "operating_days_real": 158,
+  "operating_days_1st_estimate": 146,
+  "operating_days_difference": 12,
+  "area_ha": 9565.0,
+  "cane_t": 915365.0,
+  "field_yield_t_ha": 95.7,
+  "sugar_t": 122979.0,
+  "factory_yield_pct": 13.43,
+  "agroindustrial_yield_t_sugar_ha": 12.86,
+  "standard_sugar_t": 122979.0,
+  "karbe_net_theoretical_kg_tcn_2025_26": 134.307,
+  "precision_vs_1st_estimate_pct": {
+    "end_date": "2026-05-03",
+    "area": 101.03,
+    "cane": 101.71,
+    "sugar": 103.46
+  },
+  "karbe_5_zafras": {
+    "source": "KARBE-Ponderado_de_5__ltimas_zafras.pdf",
+    "zafras": "2016/17 to 2020/21 (published for the 2021/22 pre-liquidation)",
+    "value_kg_tcn": 137.929,
+    "national_rank": 1,
+    "mills_ranked": 49,
+    "national_kg_tcn": 115.777
+  },
+  "raw": {
+    "cuadro_1": "34 Emiliano Zapata               27 de noviembre de 2025               3 de mayo de 2026                        158                   146                  12",
+    "cuadro_6": "Emiliano Zapata                     9,565              915,365              95.70             122,979             13.43           12.86              -                122,979                      -                 -                 -            134.307",
+    "cuadro_8": "Emiliano Zapata                               3 de mayo de 2026                         101.03                                 101.71                             103.46",
+    "karbe": "Emiliano Zapata                  137.929"
+  }
+}

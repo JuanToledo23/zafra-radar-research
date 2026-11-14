@@ -25,6 +25,7 @@ not accuracy against field visits.
 | Brazil gate B (delivered) vs MapBiomas 2024 | precision 77.8 %, recall 51.2 % (by area; radar gate A: 74.9 % / 46.9 %) | `results/5_brazil/validation.md` |
 | Brazil dates vs NDVI rule (40 dated segments) | median abs. error 2.5 d; 37/40 within ±12 d | `results/5_brazil/validation.md` |
 | Summaries, LLM path, verifier pass | 57/58 polygons (98.3 %) | `results/6/alert_counts.json` |
+| Morelos map vs official mill data (Ingenio Emiliano Zapata, 9 565 ha) | gated cane 9 943 ha (104 %), dated 6 867 ha (72 %); weekly r = 0.44 / 0.27 / −0.01 at lag 0 / +1 / +2 weeks | `results/10/official_comparison.md` |
 
 ## Ground truth: p36
 
@@ -308,6 +309,55 @@ Integration smoke test: `pytest -m integration tests/test_product_smoke.py`.
   C-band. The reference is optical (NDVI windows), and absolute levels differ (gamma-0 vs
   sigma-0); only the drops are compared.
 
+## Comparison with official mill data
+
+Exercise 10, `scripts/20_official_data.py` ([results/10/official_comparison.md](../results/10/official_comparison.md)).
+The official data are CONADESUCA's 36 weekly progress reports and the final report of
+zafra 2025/26 [27] for the Ingenio Emiliano Zapata, the larger of the two
+Morelos mills. All 36 weekly reports parse (`pdftotext -layout`; a row is used only when
+all 12 columns are numbers or `-`). Reports 1-2 have no row for the mill because it started
+on 27 Nov 2025. The weekly series is the difference of the cumulative rows, and it matches
+the reports' own weekly row to within 1 ha and 1 t. Our map is the exercise-4e layer,
+unchanged. Its dated polygons are re-binned into the official Sunday-Saturday weeks.
+
+**The AOI is not the mill's supply area.** The map covers the FIRMS bbox (lon −99.35 to
+−99.05, lat 18.50 to 18.75). Cane inside it may go to Central Casasano, and the mill's cane
+from outside it is not mapped. Nothing was tuned to the official numbers.
+
+| quantity | official | our map |
+|---|---|---|
+| area | 9 565 ha harvested | 9 943 ha gated cane (104 %); 6 867 ha dated (72 %) |
+| season | 27 Nov 2025 to 3 May 2026; 158 operating days (146 in the 1st estimate) | first / last dated harvest 20 Dec 2025 / 7 May 2026 (139 days) |
+| cane, yield | 915 365 t, 95.70 t/ha | – |
+| weekly r, official t vs detected ha × 95.70 t/ha (24 weeks) | lag 0: 0.44; +1: 0.27; +2: −0.01 (detection leading crushing) | |
+| 50 % of the season reached | 14 Feb 2026 (area) | 7 Feb 2026 (dated area) |
+
+* **The cumulative curves are the right comparison, and they agree.** The detected share
+  tracks the official share within −10 / +8 percentage points all season. 50 % of the
+  season is reached on 7 Feb (detected) vs 14 Feb (official), and the end agrees within
+  4 days. The gated cane area is 104 % of the official area. Because the AOI is not the
+  supply area, this shows the two are of the same order, not that the gate is right.
+* **Weekly r is weak (0.44) because of the sampling, not the dates.** The mill crushes at a
+  steady rate (CV 0.13 over 22 full weeks). Radar detections cluster on acquisition dates
+  (CV 0.69), so whole weeks are empty or double, and a week-to-week comparison penalizes
+  the revisit schedule. Detection leading crushing (lags +1, +2: r = 0.27, −0.01) is not
+  supported.
+* **Lag −1 (r = 0.60) is in the expected direction.** The date is the midpoint between the
+  last look classed standing and the first classed harvested (median gap 5 days), so a
+  field is dated only after its cut. On the 26 labelled fields the dates fall a median of
+  +1.5 days after the NDVI window midpoint (14 late, 8 early). The mill receives cane within
+  72 hours of the cut (48 hours if burned; LDSCA art. 73 [30]). That pushes part of each
+  week's detections into the next week. A full week is more than this measured bias, so
+  lag −1 is not claimed as a result: it is consistent with the date rule, not an anomaly.
+* Not dated: 3 076 ha of gated cane (1 212 ha no baseline, 1 863 ha not detected), and the
+  870 ha (9 %) the mill cut before our first date (20 Dec). In reports 3 and 25, CONADESUCA
+  notes say it estimated the mill's area. The last week adds 192 ha for 647 t, as published.
+
+![Official vs detected, weekly and cumulative](../results/10/official_vs_detected.png)
+
+*Top: share of the season per official week, mill cane milled (t) vs our dated cane area
+(ha). Bottom: cumulative share, official area / 9 565 ha vs dated area / 6 867 ha.*
+
 ## Known limitations
 
 1. **Small, single-season sample.** 26 labelled cane fields and 12 non-cane fields, one
@@ -344,9 +394,10 @@ Integration smoke test: `pytest -m integration tests/test_product_smoke.py`.
     2026-06-17 are supplemental frames; permanent gap 2026-07-27 .. 08-10 [17].
 14. **The burn-window source is pending**, and other municipalities assume the Tlaquiltenango
     window.
-15. **No official cane-area comparison.** TODO (author): the CONADESUCA [27] harvested area
-    for the Ingenio Emiliano Zapata, zafra 2025-26, to compare with the 9 943 ha gated (the
-    AOI is the FIRMS bbox, not the mill's supply area).
+15. **Official comparison is at mill level, not field level.** The CONADESUCA figures for
+    the Ingenio Emiliano Zapata (9 565 ha; [Comparison with official mill data](#comparison-with-official-mill-data))
+    cover the mill's supply area, not the AOI (the FIRMS bbox). They bound the totals and
+    timing but cannot score individual polygons.
 16. **The summary verifier is lexical**: it catches altered numbers, dates and codes, not
     unsupported claims without a number. 1 of 58 LLM calls hit the token cap.
 

@@ -95,7 +95,15 @@ Titles and venues of these are still to be added from the author's research note
     https://www.gob.mx/cms/uploads/attachment/file/846705/Reporte_final_de_producci_n_de_ca_a_y_az_car_2023_20230801.pdf
     (verified 2026-10-27). Progress report 2023/24 (to 4 May 2024):
     https://www.gob.mx/cms/uploads/attachment/file/915315/Reporte_de_avance_de_producci_n_de_ca_a_y_az_car_Corte_al_04_de_mayo_24_.pdf
-    (verified 2026-10-27). Open data: https://datamx.io/dataset/?tags=zafra (verified 2026-10-27)
+    (verified 2026-10-27). Open data: https://datamx.io/dataset/?tags=zafra (verified 2026-10-27).
+    Zafra 2025/26 (exercise 10; dates and URLs in `official-docs/README.md`): weekly
+    progress reports 1-36 (*Reporte de avance de producción de caña y azúcar*, cycle weeks
+    7-42; gob.mx file URLs not recorded); final report, published 17 Aug 2026:
+    https://www.gob.mx/cms/uploads/attachment/file/1098473/Reporte_de_cifras_finales_25_26.pdf
+    (download origin of the local copy; not re-requested); KARBE weighted average of the
+    last 5 zafras (2016/17-2020/21), PDF created 2021-10-28:
+    https://www.gob.mx/cms/uploads/attachment/file/677981/KARBE-Ponderado_de_5__ltimas_zafras.pdf
+    (download origin of the local copy; not re-requested)
 28. Gorelick, N. et al. (2017). Google Earth Engine. doi:10.1016/j.rse.2017.06.031,
     https://doi.org/10.1016/j.rse.2017.06.031 (verified 2026-10-27). Used for data access to
     Sentinel-1/2, GPM, WorldCover and MapBiomas.
@@ -106,7 +114,75 @@ Titles and venues of these are still to be added from the author's research note
 
 30. Ley de Desarrollo Sustentable de la Caña de Azúcar (LDSCA), art. 80.
     https://mley.mx/LDSCA/articulo/80/ (verified 2026-10-27); full text:
-    https://www.diputados.gob.mx/LeyesBiblio/pdf/LDSCA.pdf (verified 2026-10-27)
+    https://www.diputados.gob.mx/LeyesBiblio/pdf/LDSCA.pdf (verified 2026-10-27). Text
+    quoted below from that PDF (Cámara de Diputados, last reform DOF 14-11-2025, 45 pages;
+    copy downloaded for exercise 10, see `official-docs/README.md`), verbatim from
+    `pdftotext -layout` with line breaks joined. Page numbers are those printed in the PDF
+    ("n de 45"); `[…]` marks omitted fractions. Spelling and typos are the law's (e.g.
+    art. 75 "hasta del 10% ciento"). Art. 80 (suspension of reception or milling for
+    more than 12 hours: burning orders suspended) is the article this entry was first
+    listed for. The others cover burning orders, suspension of cuts and reception, and
+    sanctions (*castigos*). All nine articles: `results/10/ldsca_articles.md`.
+
+    Art. 26, pp. 13-14 (fractions II and V on p. 14):
+
+    > Artículo 26.- Los Comités son los órganos encargados de vigilar el cumplimiento de esta Ley, y de las reglas y definiciones que acuerde el Comité Nacional y tendrán las siguientes facultades y obligaciones:
+    >
+    > […]
+    >
+    > II. Elaborar y modificar, en su caso, el programa semanal de prioridades de Corte; adecuar el programa de zafra cuando a su juicio sea conveniente y acordar la suspensión de cortes si las condiciones lo requieren;
+    >
+    > […]
+    >
+    > V. Expedir las órdenes de suspensión de riegos, de quemas y de corte, así como elaborar el acta de fin de zafra dentro de los diez días siguientes a su terminación;
+    >
+    > […]
+
+    Art. 70, p. 23:
+
+    > Artículo 70.- Por caña programada se entenderá aquella que esté comprendida dentro de las fechas de corte según el programa previo aprobado por el Comité, debidamente actualizado durante el desarrollo de la zafra y cubierta por su respectiva orden de quema en su caso, de corte y/o de suspensión de riegos, con base en su índice de madurez.
+
+    Art. 73, p. 24:
+
+    > Artículo 73.- Al momento de su recepción en el batey del Ingenio, la caña de azúcar deberá tener la condición y las características siguientes:
+    >
+    > […]
+    >
+    > II. Ser fresca, en el momento de su entrega, entendiéndose por ello no más de 72 horas después de su corte en el caso de caña cruda y no mas de 48 horas después de su quema;
+    >
+    > […]
+
+    Art. 75, p. 24:
+
+    > Artículo 75.- Cuando la caña rebase las 48 horas después de su quema sin ser entregada en el batey, por causas imputables al Abastecedor de Caña de azúcar, será sujeta a un castigo hasta del 10% ciento de su valor durante las primeras 24 horas posteriores siguientes y hasta el 20% de su valor durante las 24 horas posteriores, que dictaminará el Comité. La recepción de la caña con mayor tiempo de lo antes señalado, será motivo de análisis para determinar su deterioro y en su caso, el castigo correspondiente que establecerá el citado Comité.
+
+    Art. 77, p. 24:
+
+    > Artículo 77.- Para la organización de la cosecha en general, las cañas no programadas se sujetarán a los procedimientos siguientes:
+    >
+    > I. Cuando el Abastecedor de Caña de azúcar sin orden de corte y sin autorización del Comité coseche su caña, ésta podrá no ser recibida por el Ingenio, y
+    >
+    > II. Cuando por causa accidental una superficie con caña desarrollada se queme sin orden de corte, será castigada hasta con el 10% de su valor sin perjuicio de otros descuentos y/o castigos que le pudiera corresponder. El Comité, previa investigación de las causas que hayan provocado el accidente, determinará dicho castigo.
+
+    Art. 80, p. 25:
+
+    > Artículo 80.- Cuando el Ingenio por cualquier causa suspenda la recepción y/o la molienda de caña de azúcar por más de 12 horas, deberá notificar de inmediato al Comité, para que éste suspenda las órdenes de quema y reprograme los cortes, levantando el acta correspondiente de la caña quemada en campo y en trayecto al Ingenio, para su relación con la aplicación de castigos en su caso.
+
+    Art. 81, p. 25:
+
+    > Artículo 81.- Cuando por causas imputables al Ingenio, la caña se procese con deterioro, debido a demoras en su recepción, o bien por haber estado más de 24 horas en el batey sin molerse, se le aplicará un castigo que será hasta del 10% del valor de la caña deteriorada y hasta del 20% ciento de su valor durante las 24 horas siguientes. El importe de este castigo será determinado por el Comité y el Ingenio deberá abonarlo a la caña total aportada.
+
+    Art. 85, pp. 26-27 (fraction VII on p. 27):
+
+    > Artículo 85.- Se entenderán por causas imputables a los Abastecedores de Caña de azúcar de un Ingenio las siguientes:
+    >
+    > […]
+    >
+    > VII. Cuando no atiendan oportunamente la quema, el corte y el acarreo de sus cañas.
+
+    Art. 86, p. 27:
+
+    > Artículo 86.- En caso de cañas quemadas accidentalmente y fuera de programa, el Comité podrá llevar a cabo una reprogramación en sus frentes de corte, acudiendo en auxilio del Abastecedor de Caña afectado para facilitar la entrega, con el fin de que se industrialice el mayor volumen posible sin lesionar los intereses de otros cañeros cuyas cañas estén en proceso de corte.
 31. NOM-015-SEMARNAT/AGRICULTURA-2023, use of fire on agricultural and forest land.
     https://www.ccacoalition.org/resources/official-mexican-standard-nom-015-semarnatagriculture-2023
     (unverified)

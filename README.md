@@ -80,12 +80,13 @@ to the checkout, so a plain wheel install is not supported yet.
 | Morelos | area dated, zafra 2025-26 | 3 976 of 6 014 cane segments; 6 867 of 9 943 ha | – | [`results/4e`](results/4e/area_summary.json) |
 | Morelos | weekly harvests vs VIIRS fires within 200 m of cane | r = 0.71 (same week) | VIIRS active fires | [`results/4e`](results/4e/area_summary.json) |
 | Morelos | HV drop at harvest, L- vs C-band (26 cane fields) | NISAR HV −2.5 dB (asc) / −1.9 dB (desc); Sentinel-1 VH −2.2 to −2.7 dB | Sentinel-2 NDVI harvest windows | [`results/9`](results/9/l_vs_c.md) |
+| Morelos | map vs official mill data, Ingenio Emiliano Zapata 2025-26 | gated cane 9 943 ha vs 9 565 ha harvested (AOI ≠ supply area); dated 6 867 ha; weekly r = 0.44 (lag 0), 0.27 (+1), −0.01 (+2) | CONADESUCA weekly and final reports | [`results/10`](results/10/official_comparison.md) |
 | Brazil | cane gate (optical, unchanged Morelos model) | precision 77.8 %, recall 51.2 % by area (radar gate A: 74.9 % / 46.9 %) | MapBiomas 2024 land cover | [`results/5_brazil`](results/5_brazil/validation.md) |
 | Brazil | harvest date error (unchanged Morelos detector) | median 2.5 d; 37 of 40 sampled segments within ±12 d | NDVI rule on the local Sentinel-2 stack | [`results/5_brazil`](results/5_brazil/validation.md) |
 | Brazil | area dated, safra 2026-27 (radar from 2026-06-22) | 2 776 of 12 210 cane segments; 12 413 of 42 491 ha (corrupt 07-18 scene excluded) | – | [`results/5_brazil`](results/5_brazil/transfer.md) |
 
 None of these is accuracy against field visits: the references are optical or land-cover
-maps (see [Validation](#validation)).
+maps, or mill-level statistics (see [Validation](#validation)).
 
 ![Morelos 2025-26 harvest map](docs/figures/4e_harvest_map.png)
 

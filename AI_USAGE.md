@@ -218,6 +218,26 @@ log is itemised per exercise from exercise 4b on; earlier sessions (exercises 1-
     were imported but not declared, and that `zafra.sentinel1` imported Earth Engine at
     module level. They are now declared, and the import is lazy, so CI runs without the
     `ee` extra.
+- 2026-11-12: Exercise 10, comparison with official CONADESUCA data for the Ingenio
+  Emiliano Zapata (author's brief; the author downloaded the PDFs). Claude Code wrote the
+  parser (`src/zafra/conadesuca.py`), `scripts/20_official_data.py`, the tests, and the
+  documents' updates. Choices it made where the brief left them open:
+  - Tables are found by title, not by table number ("Cuadro 9" moves between reports). A
+    row is used only when it has exactly 12 values, and a changed units line is an error.
+    All 36 reports parse. Reports 1-2 have no row for the mill, which started on 27 Nov 2025.
+  - The `*` after a mill name means "started" in early reports and "concluded" later. It is
+    reported with each report's footnote, not as a flag. The same pass found CONADESUCA
+    notes saying the mill's area was estimated in reports 3 and 25. They are quoted
+    verbatim.
+  - Our dated polygons are re-binned into the official Sunday-Saturday weeks rather than
+    using the Monday weeks of `results/4e/weekly.csv` (kept as a totals cross-check).
+    Detected tonnes use the official season t/ha (95.70). This is a constant factor, so r is
+    the same as for hectares.
+  - Lags −1 and −2 are reported next to the requested 0 / +1 / +2, marked as context and not
+    as a result. Nothing was tuned to the official numbers.
+  - The weekly reports' gob.mx file URLs are not in the PDFs or their download metadata, so
+    they are left as a TODO for the author, not guessed. Publication dates of the weekly
+    reports are PDF creation dates, labelled as such.
 
 ---
 

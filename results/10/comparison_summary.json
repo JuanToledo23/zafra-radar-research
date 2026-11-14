@@ -1,0 +1,72 @@
+{
+  "reports_parsed": 36,
+  "reports": 36,
+  "reports_with_mill_row": 34,
+  "max_abs_diff_vs_reported_weekly_ha": 1.0,
+  "max_abs_diff_vs_reported_weekly_t": 1.0,
+  "season_weeks": 24,
+  "official_t_ha": 95.7,
+  "pearson_r": {
+    "-2": {
+      "r": 0.53,
+      "n_weeks": 22
+    },
+    "-1": {
+      "r": 0.601,
+      "n_weeks": 23
+    },
+    "0": {
+      "r": 0.435,
+      "n_weeks": 24
+    },
+    "1": {
+      "r": 0.272,
+      "n_weeks": 23
+    },
+    "2": {
+      "r": -0.014,
+      "n_weeks": 22
+    }
+  },
+  "detected": {
+    "segments": 39542,
+    "cane_segments": 6014,
+    "cane_ha": 9943.17,
+    "dated_segments": 3976,
+    "dated_ha": 6867.38,
+    "status_ha": {
+      "harvested": 6867.4,
+      "no_baseline": 1212.5,
+      "not_detected": 1863.3
+    },
+    "first_date": "2025-12-20",
+    "last_date": "2026-05-07",
+    "date_quantiles": {
+      "0.1": "2026-01-01",
+      "0.25": "2026-01-19",
+      "0.5": "2026-02-12",
+      "0.75": "2026-03-14",
+      "0.9": "2026-04-19"
+    },
+    "dated_ha_outside_season_weeks": 0.0,
+    "weekly_csv_harvest_ha": 6867.379999999999,
+    "weekly_csv_first_last_week": [
+      "2025-12-15",
+      "2026-05-04"
+    ]
+  },
+  "share_crossings": {
+    "0.25": {
+      "official": "2026-01-10",
+      "detected": "2026-01-17"
+    },
+    "0.5": {
+      "official": "2026-02-14",
+      "detected": "2026-02-07"
+    },
+    "0.75": {
+      "official": "2026-03-28",
+      "detected": "2026-03-14"
+    }
+  }
+}

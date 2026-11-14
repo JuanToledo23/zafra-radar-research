@@ -164,15 +164,43 @@ terms before redistributing anything. Citations [n] are in [REFERENCES.md](REFER
 - Third-party data (NISAR, Sentinel-1/2, FIRMS, WorldCover, IMERG, MapBiomas) are not
   redistributed here except as derived per-field statistics and figures. They keep their
   upstream terms, with the credit lines given in each entry above.
+- CONADESUCA figures in `results/10/` are quoted from public government reports, with their
+  source. The PDFs and the LDSCA are not redistributed (`official-docs/` is not versioned).
+
+## CONADESUCA mill statistics and the LDSCA (exercise 10)
+
+Compared with the Morelos map in [VALIDATION.md](VALIDATION.md#comparison-with-official-mill-data)
+(`scripts/20_official_data.py`, `results/10/`). The PDFs are kept in `official-docs/`, which
+is not versioned. [official-docs/README.md](../official-docs/README.md) lists each file with
+its date and source URL. CONADESUCA is the sector body set up under the LDSCA [30].
+
+- **Weekly progress reports, zafra 2025/26** [27]: *Reporte de avance de producción de caña
+  y azúcar*, reports 1-36 (cycle weeks 7-42, periods 9 Nov 2025 to 18 Jul 2026). Weekly and
+  cumulative area harvested (*superficie industrializada*), cane milled, field, factory and
+  agro-industrial yield, sugar by type and KARBE, per mill, cane region and state. Manual
+  download from gob.mx. The reports print no publication date (PDF creation dates
+  2025-11-20 to 2026-07-24), and their gob.mx file URLs were not recorded. TODO (author):
+  add them to `official-docs/README.md`.
+- **Final report, zafra 2025/26** [27]: *Reporte final de producción de caña y azúcar*, final
+  factory runs. Published 17 Aug 2026.
+  https://www.gob.mx/cms/uploads/attachment/file/1098473/Reporte_de_cifras_finales_25_26.pdf
+  Used: the mill's season dates and operating days (Cuadro 1), cumulative row (Cuadro 6),
+  and precision against the 1st estimate (Cuadro 8).
+- **KARBE weighted average of the last 5 zafras** [27]: CONADESUCA, per-mill KARBE over
+  zafras 2016/17-2020/21 (LDSCA art. 61), for the 2021/22 pre-liquidation. No printed
+  date; PDF created 2021-10-28.
+  https://www.gob.mx/cms/uploads/attachment/file/677981/KARBE-Ponderado_de_5__ltimas_zafras.pdf
+  Emiliano Zapata: 137.929 kg/tCN, rank 1 of 49 (national 115.777). This is context only:
+  it is an older period than the 2025/26 season.
+- **LDSCA** [30]: Ley de Desarrollo Sustentable de la Caña de Azúcar, Cámara de Diputados,
+  last reform DOF 14-11-2025 (PDF created 2025-11-25).
+  https://www.diputados.gob.mx/LeyesBiblio/pdf/LDSCA.pdf Articles on burning orders,
+  suspension of reception and sanctions are quoted in [REFERENCES.md](REFERENCES.md) [30].
 
 ## Sugar-sector statistics (context only)
 
 None of these is compared with a pipeline output yet.
 
-- **CONADESUCA weekly zafra reports** [27]: cane milled, area harvested, yield and KARBE per
-  Mexican mill, weekly; manual download. CONADESUCA is the sector body set up under the
-  LDSCA [30]. TODO (author): the harvested area of the Ingenio Emiliano Zapata for zafra
-  2025-26, to compare with the 9 943 ha gated as cane.
 - **UNICA** [25]: fortnightly Centre-South crushing reports. Cumulative Centre-South crush to
   1 Oct 2025 for safra 2025-26: 490.93 Mt (figure supplied by the author, not re-checked).
 - **CONAB** [26]: safra surveys of cane area and production per state. Listed only.

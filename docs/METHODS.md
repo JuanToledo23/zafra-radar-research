@@ -42,6 +42,7 @@ these documents the early steps are named by their script, the later ones by exe
 | exercise 7 | `product/` | product skeleton (PostGIS, FastAPI, React + MapLibre) |
 | exercise 9 | `18_web_rasters.py --site` | NISAR backscatter and change rasters and XYZ tiles for the web map |
 | exercise 9 | `14 --scene-quality-only`, `19_l_vs_c.py` | scene-quality check; Sentinel-1 VH/VV series and the L- vs C-band drop at harvest |
+| exercise 10 | `20_official_data.py` | CONADESUCA weekly and final reports for the Ingenio Emiliano Zapata vs the Morelos map |
 
 ## 1. Data and sites
 

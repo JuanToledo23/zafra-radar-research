@@ -43,3 +43,13 @@ outputs/segments_ts/
 # Area-wide segment files over 10 MB (regenerate with scripts/13_field_segmentation.py)
 data/fields/segments.geojson
 data/fields/segments_classic.geojson
+
+# Exercise 10: official CONADESUCA PDFs and the LDSCA are not redistributed; the list is in
+# official-docs/README.md
+official-docs/*
+!official-docs/README.md
+# Rows copied verbatim from the reports (regenerate with scripts/20_official_data.py)
+results/10/raw_rows.txt
+
+# Local working notes (not part of the library)
+LIBRARY_AUDIT.md
